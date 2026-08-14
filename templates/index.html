@@ -1,374 +1,572 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>BIST Hisse Avcısı V5</title>
+    <title>BIST Hisse Avcısı</title>
 
-<style>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
 
-* {
-    box-sizing: border-box;
-}
+        .container {
+            max-width: 1100px;
+            margin: auto;
+        }
 
-body {
-    margin: 0;
-    background: #0f172a;
-    color: #e5e7eb;
-    font-family: Arial, sans-serif;
-}
+        h1 {
+            margin-bottom: 5px;
+        }
 
-.container {
-    max-width: 1100px;
-    margin: auto;
-    padding: 20px;
-}
+        .aciklama {
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
 
-h1 {
-    margin-bottom: 5px;
-}
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 8px;
+        }
 
-.subtitle {
-    color: #94a3b8;
-    margin-bottom: 20px;
-}
+        button:disabled {
+            opacity: 0.5;
+        }
 
-button {
-    border: none;
-    border-radius: 10px;
-    padding: 13px 18px;
-    margin-right: 8px;
-    background: #2563eb;
-    color: white;
-    font-size: 15px;
-    font-weight: bold;
-}
+        #durum {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
 
-button:disabled {
-    opacity: 0.5;
-}
+        #sonuclar {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(290px, 1fr));
+            gap: 15px;
+        }
 
-.status {
-    margin: 18px 0;
-    padding: 13px;
-    background: #1e293b;
-    border-radius: 10px;
-}
+        .kart {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 16px;
+        }
 
-.grid {
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(290px, 1fr));
-    gap: 15px;
-}
+        .ust {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-.card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 14px;
-    padding: 17px;
-}
+        .hisse {
+            font-size: 24px;
+            font-weight: bold;
+        }
 
-.top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+        .fiyat {
+            font-size: 20px;
+            font-weight: bold;
+        }
 
-.symbol {
-    font-size: 24px;
-    font-weight: bold;
-}
+        .sinyal {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 15px 0;
+            font-size: 17px;
+            font-weight: bold;
+        }
 
-.price {
-    font-size: 21px;
-    font-weight: bold;
-}
+        .bilgiler {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
 
-.signal {
-    margin: 15px 0;
-    padding: 10px;
-    background: #0f172a;
-    border-radius: 9px;
-    font-size: 18px;
-    font-weight: bold;
-}
+        .bilgi {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 9px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
 
-.metrics {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-}
+        .bilgi strong {
+            display: block;
+            color: white;
+            font-size: 15px;
+            margin-top: 4px;
+        }
 
-.metric {
-    background: #0f172a;
-    padding: 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    color: #94a3b8;
-}
+        .neden {
+            margin-top: 14px;
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.6;
+        }
 
-.metric b {
-    display: block;
-    color: #e5e7eb;
-    font-size: 15px;
-    margin-top: 4px;
-}
+        #gecmis {
+            display: none;
+            margin-top: 20px;
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 12px;
+            overflow-x: auto;
+        }
 
-.why {
-    margin-top: 14px;
-    color: #94a3b8;
-    font-size: 13px;
-    line-height: 1.7;
-}
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
-.history {
-    margin-top: 25px;
-    background: #1e293b;
-    padding: 15px;
-    border-radius: 12px;
-    overflow-x: auto;
-}
+        th, td {
+            padding: 9px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+            font-size: 13px;
+        }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-th,
-td {
-    padding: 9px;
-    text-align: left;
-    border-bottom: 1px solid #334155;
-    font-size: 13px;
-}
-
-.error {
-    color: #f87171;
-    margin-top: 15px;
-}
-
-</style>
-
+        .hata {
+            color: #f87171;
+            margin-top: 15px;
+        }
+    </style>
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>📈 BIST Hisse Avcısı</h1>
+    <h1>📈 BIST Hisse Avcısı</h1>
 
-<div class="subtitle">
-Günlük fiyat + hacim + trend + RSI radar sistemi
-</div>
+    <div class="aciklama">
+        Günlük fiyat + hacim + trend + RSI analiz sistemi
+    </div>
 
-<button
-    id="scanButton"
-    onclick="tara()">
-    🔎 Hisseleri Tara
-</button>
+    <button id="taraButonu">
+        🔎 HİSSELERİ TARA
+    </button>
 
-<button
-    onclick="gecmisiGoster()">
-    📜 Sinyal Geçmişi
-</button>
+    <button id="gecmisButonu">
+        📜 SİNYAL GEÇMİŞİ
+    </button>
 
-<div
-    id="status"
-    class="status">
+    <div id="durum">
+        Hazır. Hisseleri taramak için butona bas.
+    </div>
 
-    Hazır. Tarama başlatmak için
-    butona bas.
+    <div id="hata" class="hata"></div>
 
-</div>
+    <div id="sonuclar"></div>
 
-<div
-    id="results"
-    class="grid">
-</div>
-
-<div
-    id="errors"
-    class="error">
-</div>
-
-<div
-    id="history"
-    class="history"
-    style="display:none;">
-
-</div>
+    <div id="gecmis"></div>
 
 </div>
 
 
 <script>
 
+document.addEventListener("DOMContentLoaded", function () {
 
-async function tara() {
+    console.log("BIST Hisse Avcısı JavaScript çalıştı.");
 
-    const button =
-        document.getElementById(
-            "scanButton"
-        );
+    const taraButonu =
+        document.getElementById("taraButonu");
 
-    const status =
-        document.getElementById(
-            "status"
-        );
+    const gecmisButonu =
+        document.getElementById("gecmisButonu");
 
-    const results =
-        document.getElementById(
-            "results"
-        );
+    const durum =
+        document.getElementById("durum");
 
-    const errors =
-        document.getElementById(
-            "errors"
-        );
+    const sonuclar =
+        document.getElementById("sonuclar");
 
+    const hata =
+        document.getElementById("hata");
 
-    button.disabled = true;
-
-    status.innerText =
-        "⏳ Hisseler taranıyor...";
-
-    results.innerHTML =
-        "<div>Veriler alınıyor. " +
-        "Lütfen bekleyin...</div>";
-
-    errors.innerHTML = "";
+    const gecmis =
+        document.getElementById("gecmis");
 
 
-    try {
+    /*
+     * HİSSE TARAMA
+     */
 
-        const response =
-            await fetch(
-                "/api/scan"
+    taraButonu.addEventListener("click", async function () {
+
+        console.log("Tarama butonuna basıldı.");
+
+        taraButonu.disabled = true;
+
+        durum.innerText =
+            "⏳ Hisseler taranıyor...";
+
+        hata.innerText = "";
+
+        sonuclar.innerHTML =
+            "<div>Veriler alınıyor, lütfen bekleyin...</div>";
+
+        try {
+
+            const cevap =
+                await fetch("/api/scan", {
+                    method: "GET",
+                    cache: "no-store"
+                });
+
+
+            console.log(
+                "Sunucu cevabı:",
+                cevap.status
             );
 
 
-        if (!response.ok) {
+            if (!cevap.ok) {
 
-            throw new Error(
-                "Sunucu hatası: " +
-                response.status
+                throw new Error(
+                    "Sunucu HTTP " +
+                    cevap.status +
+                    " hatası verdi."
+                );
+            }
+
+
+            const veri =
+                await cevap.json();
+
+
+            console.log(
+                "Tarama sonucu:",
+                veri
             );
 
-        }
+
+            durum.innerText =
+                "✅ Tarama tamamlandı — " +
+                veri.sonuc_sayisi +
+                " hisse bulundu.";
 
 
-        const data =
-            await response.json();
+            if (
+                !veri.sonuclar ||
+                veri.sonuclar.length === 0
+            ) {
+
+                sonuclar.innerHTML =
+                    "<div>⚠️ Hisse bulunamadı.</div>";
+
+            } else {
+
+                sonuclar.innerHTML =
+                    veri.sonuclar.map(
+                        function (hisse) {
+
+                            let nedenler =
+                                "Belirgin teyit yok.";
+
+                            if (
+                                hisse.nedenler &&
+                                hisse.nedenler.length > 0
+                            ) {
+
+                                nedenler =
+                                    hisse.nedenler
+                                    .map(
+                                        function (neden) {
+                                            return "• " + neden;
+                                        }
+                                    )
+                                    .join("<br>");
+
+                            }
 
 
-        status.innerText =
-            "✅ Tarama tamamlandı — " +
-            data.sonuc_sayisi +
-            " hisse bulundu.";
+                            return `
+
+                            <div class="kart">
+
+                                <div class="ust">
+
+                                    <div class="hisse">
+                                        ${hisse.hisse}
+                                    </div>
+
+                                    <div class="fiyat">
+                                        ${Number(hisse.fiyat).toFixed(2)} ₺
+                                    </div>
+
+                                </div>
 
 
-        if (
-            !data.sonuclar ||
-            data.sonuclar.length === 0
-        ) {
+                                <div class="sinyal">
 
-            results.innerHTML =
-                "<div>" +
-                "⚠️ Veri bulunamadı." +
-                "</div>";
+                                    ${hisse.sinyal}
 
-            return;
-
-        }
+                                </div>
 
 
-        results.innerHTML =
-            data.sonuclar
-            .map(
-                function(stock) {
+                                <div class="bilgiler">
 
-                    const degisim =
-                        Number(
-                            stock.gunluk_degisim
-                        );
+                                    <div class="bilgi">
+                                        RSI
+                                        <strong>
+                                            ${hisse.rsi}
+                                        </strong>
+                                    </div>
 
+                                    <div class="bilgi">
+                                        Hacim
+                                        <strong>
+                                            ${hisse.hacim_orani}x
+                                        </strong>
+                                    </div>
 
-                    let renk = "";
+                                    <div class="bilgi">
+                                        Günlük
+                                        <strong>
+                                            ${hisse.gunluk_degisim}%
+                                        </strong>
+                                    </div>
 
-                    if (
-                        stock.sinyal
-                        .includes("AL")
-                    ) {
+                                    <div class="bilgi">
+                                        Zirveden
+                                        <strong>
+                                            ${hisse.zirveden_uzaklik}%
+                                        </strong>
+                                    </div>
 
-                        renk =
-                            "🟢";
+                                    <div class="bilgi">
+                                        EMA 9
+                                        <strong>
+                                            ${hisse.ema9}
+                                        </strong>
+                                    </div>
 
-                    }
+                                    <div class="bilgi">
+                                        EMA 21
+                                        <strong>
+                                            ${hisse.ema21}
+                                        </strong>
+                                    </div>
 
-                    if (
-                        stock.sinyal
-                        .includes("TAKİBE")
-                    ) {
+                                    <div class="bilgi">
+                                        EMA 50
+                                        <strong>
+                                            ${hisse.ema50}
+                                        </strong>
+                                    </div>
 
-                        renk =
-                            "👀";
+                                    <div class="bilgi">
+                                        EMA 200
+                                        <strong>
+                                            ${hisse.ema200}
+                                        </strong>
+                                    </div>
 
-                    }
-
-                    if (
-                        stock.sinyal
-                        .includes("BEKLE")
-                    ) {
-
-                        renk =
-                            "⏳";
-
-                    }
-
-                    if (
-                        stock.sinyal
-                        .includes("UZAK")
-                    ) {
-
-                        renk =
-                            "🔴";
-
-                    }
-
-                    if (
-                        stock.sinyal
-                        .includes("AŞIRI")
-                    ) {
-
-                        renk =
-                            "⚠️";
-
-                    }
+                                </div>
 
 
-                    return `
+                                <div class="neden">
 
-                    <div class="card">
+                                    <strong>Neden?</strong>
 
-                        <div class="top">
+                                    <br>
 
-                            <div
-                                class="symbol">
+                                    ${nedenler}
 
-                                ${stock.hisse}
+                                </div>
 
                             </div>
 
-                            <div
-                                class="price">
+                            `;
 
-                                ${Number(
-                                    stock.fiyat
-                                ).toFixed(2)}
-                                ₺
+                        }
+                    ).join("");
 
-                            </div>
+            }
 
-                        </div>
+
+            if (
+                veri.hatalar &&
+                veri.hatalar.length > 0
+            ) {
+
+                hata.innerText =
+                    "⚠️ " +
+                    veri.hatalar.length +
+                    " hisseden veri alınamadı.";
+
+            }
+
+        }
+
+        catch (err) {
+
+            console.error(
+                "Tarama hatası:",
+                err
+            );
+
+            durum.innerText =
+                "❌ Tarama sırasında hata oluştu.";
+
+            hata.innerText =
+                err.message;
+
+            sonuclar.innerHTML = "";
+
+        }
+
+        finally {
+
+            taraButonu.disabled = false;
+
+        }
+
+    });
+
+
+    /*
+     * SİNYAL GEÇMİŞİ
+     */
+
+    gecmisButonu.addEventListener(
+        "click",
+        async function () {
+
+            gecmis.style.display = "block";
+
+            gecmis.innerHTML =
+                "⏳ Geçmiş yükleniyor...";
+
+
+            try {
+
+                const cevap =
+                    await fetch(
+                        "/api/history",
+                        {
+                            cache: "no-store"
+                        }
+                    );
+
+
+                if (!cevap.ok) {
+
+                    throw new Error(
+                        "Geçmiş alınamadı."
+                    );
+
+                }
+
+
+                const veriler =
+                    await cevap.json();
+
+
+                if (
+                    !veriler ||
+                    veriler.length === 0
+                ) {
+
+                    gecmis.innerHTML =
+                        "<h3>📜 Sinyal Geçmişi</h3>" +
+                        "<p>Henüz kayıt yok.</p>";
+
+                    return;
+
+                }
+
+
+                let tablo = `
+
+                    <h3>
+                        📜 Sinyal Geçmişi
+                    </h3>
+
+                    <table>
+
+                        <tr>
+                            <th>Tarih</th>
+                            <th>Hisse</th>
+                            <th>Sinyal</th>
+                            <th>Fiyat</th>
+                        </tr>
+
+                `;
+
+
+                veriler
+                .slice()
+                .reverse()
+                .forEach(
+                    function (kayit) {
+
+                        tablo += `
+
+                            <tr>
+
+                                <td>
+                                    ${kayit.tarih}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        ${kayit.hisse}
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    ${kayit.sinyal}
+                                </td>
+
+                                <td>
+                                    ${kayit.fiyat} ₺
+                                </td>
+
+                            </tr>
+
+                        `;
+
+                    }
+                );
+
+
+                tablo += "</table>";
+
+                gecmis.innerHTML = tablo;
+
+            }
+
+            catch (err) {
+
+                gecmis.innerHTML =
+                    "❌ " +
+                    err.message;
+
+            }
+
+        }
+    );
+
+});
+
+</script>
+
+</body>
+</html>
