@@ -1,467 +1,895 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>BIST Hisse Avcısı</title>
+<title>BIST Hisse Avcısı V6</title>
 
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background: #0f172a;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
+<style>
 
-        .container {
-            max-width: 1100px;
-            margin: auto;
-        }
+* {
+    box-sizing: border-box;
+}
 
-        h1 {
-            margin-bottom: 5px;
-        }
+body {
+    margin: 0;
+    background: #0f172a;
+    color: #e5e7eb;
+    font-family: Arial, sans-serif;
+}
 
-        .aciklama {
-            color: #94a3b8;
-            margin-bottom: 20px;
-        }
+.container {
+    max-width: 1150px;
+    margin: auto;
+    padding: 18px;
+}
 
-        button {
-            background: #2563eb;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            padding: 14px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-right: 8px;
-        }
+h1 {
+    margin: 0 0 5px 0;
+}
 
-        button:disabled {
-            opacity: 0.5;
-        }
+.subtitle {
+    color: #94a3b8;
+    margin-bottom: 20px;
+}
 
-        #durum {
-            background: #1e293b;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-        }
+button {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 17px;
+    background: #2563eb;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 7px;
+    margin-bottom: 8px;
+}
 
-        #sonuclar {
-            display: grid;
-            grid-template-columns:
-                repeat(auto-fit, minmax(290px, 1fr));
-            gap: 15px;
-        }
+button:disabled {
+    opacity: .5;
+}
 
-        .kart {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 14px;
-            padding: 16px;
-        }
+#status {
+    background: #1e293b;
+    border-radius: 10px;
+    padding: 13px;
+    margin: 15px 0;
+}
 
-        .ust {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+.kategoriler {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+}
 
-        .hisse {
-            font-size: 24px;
-            font-weight: bold;
-        }
+.kategori {
+    background: #1e293b;
+    border-radius: 14px;
+    padding: 15px;
+    border: 1px solid #334155;
+}
 
-        .fiyat {
-            font-size: 20px;
-            font-weight: bold;
-        }
+.kategori h2 {
+    margin-top: 0;
+    font-size: 19px;
+}
 
-        .sinyal {
-            background: #0f172a;
-            border-radius: 8px;
-            padding: 10px;
-            margin: 15px 0;
-            font-size: 17px;
-            font-weight: bold;
-        }
+.guclu h2 {
+    color: #fbbf24;
+}
 
-        .bilgiler {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
+.al h2 {
+    color: #4ade80;
+}
 
-        .bilgi {
-            background: #0f172a;
-            border-radius: 8px;
-            padding: 9px;
-            color: #94a3b8;
-            font-size: 12px;
-        }
+.takip h2 {
+    color: #60a5fa;
+}
 
-        .bilgi strong {
-            display: block;
-            color: white;
-            font-size: 15px;
-            margin-top: 4px;
-        }
+.hisseKart {
+    background: #0f172a;
+    border-radius: 11px;
+    padding: 13px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    border: 1px solid #334155;
+    transition: .15s;
+}
 
-        .neden {
-            margin-top: 14px;
-            color: #cbd5e1;
-            font-size: 13px;
-            line-height: 1.6;
-        }
+.hisseKart:hover {
+    transform: translateY(-2px);
+    border-color: #60a5fa;
+}
 
-        #gecmis {
-            display: none;
-            margin-top: 20px;
-            background: #1e293b;
-            padding: 15px;
-            border-radius: 12px;
-            overflow-x: auto;
-        }
+.hisseUst {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+.hisseAdi {
+    font-size: 20px;
+    font-weight: bold;
+}
 
-        th, td {
-            padding: 9px;
-            text-align: left;
-            border-bottom: 1px solid #334155;
-            font-size: 13px;
-        }
+.hisseFiyat {
+    font-weight: bold;
+}
 
-        .hata {
-            color: #f87171;
-            margin-top: 15px;
-        }
-    </style>
+.kucukBilgi {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-top: 7px;
+}
+
+.sinyal {
+    margin-top: 8px;
+    font-weight: bold;
+}
+
+#detay {
+    display: none;
+    margin-top: 20px;
+}
+
+.detayKart {
+    background: #1e293b;
+    border-radius: 15px;
+    padding: 18px;
+    border: 1px solid #334155;
+}
+
+.detayUst {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.detayHisse {
+    font-size: 30px;
+    font-weight: bold;
+}
+
+.detayFiyat {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.sinyalBuyuk {
+    font-size: 20px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.seviyeler {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.seviye {
+    background: #0f172a;
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.seviye span {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.seviye strong {
+    display: block;
+    font-size: 18px;
+    margin-top: 5px;
+}
+
+.giris {
+    border: 1px solid #4ade80;
+}
+
+.stop {
+    border: 1px solid #f87171;
+}
+
+.hedef {
+    border: 1px solid #60a5fa;
+}
+
+.metrikler {
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+}
+
+.metrik {
+    background: #0f172a;
+    border-radius: 9px;
+    padding: 10px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.metrik strong {
+    display: block;
+    color: white;
+    font-size: 15px;
+    margin-top: 4px;
+}
+
+.neden {
+    margin-top: 18px;
+    color: #cbd5e1;
+    line-height: 1.7;
+}
+
+.grafik {
+    margin-top: 20px;
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+canvas {
+    width: 100%;
+    height: 300px;
+}
+
+.gecmis {
+    display: none;
+    margin-top: 20px;
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 15px;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    padding: 8px;
+    border-bottom: 1px solid #334155;
+    text-align: left;
+    font-size: 13px;
+}
+
+.hata {
+    color: #f87171;
+    margin-top: 10px;
+}
+
+.bos {
+    color: #64748b;
+    font-size: 13px;
+}
+
+</style>
 </head>
+
 
 <body>
 
 <div class="container">
 
-    <h1>📈 BIST Hisse Avcısı</h1>
+    <h1>📈 BIST Hisse Avcısı V6</h1>
 
-    <div class="aciklama">
-        Günlük fiyat + hacim + trend + RSI analiz sistemi
+    <div class="subtitle">
+        Güçlü AL • AL • Takibe AL • Teknik işlem planı
     </div>
 
     <button id="taraButonu">
-        🔎 HİSSELERİ TARA
+        🔎 TÜM HİSSELERİ TARA
     </button>
 
     <button id="gecmisButonu">
         📜 SİNYAL GEÇMİŞİ
     </button>
 
-    <div id="durum">
-        Hazır. Hisseleri taramak için butona bas.
+    <div id="status">
+        Hazır. Tarama başlatmak için butona bas.
     </div>
 
     <div id="hata" class="hata"></div>
 
-    <div id="sonuclar"></div>
 
-    <div id="gecmis"></div>
+    <div class="kategoriler">
+
+        <div class="kategori guclu">
+
+            <h2>🔥 GÜÇLÜ AL</h2>
+
+            <div id="gucluAl">
+                <div class="bos">
+                    Henüz tarama yapılmadı.
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="kategori al">
+
+            <h2>🟢 AL</h2>
+
+            <div id="al">
+                <div class="bos">
+                    Henüz tarama yapılmadı.
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="kategori takip">
+
+            <h2>👀 TAKİBE AL</h2>
+
+            <div id="takip">
+                <div class="bos">
+                    Henüz tarama yapılmadı.
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div id="detay">
+
+        <div class="detayKart">
+
+            <button id="geriButonu">
+                ← Listeye Dön
+            </button>
+
+            <button id="tradingViewButonu">
+                📊 TradingView'de Aç
+            </button>
+
+
+            <div class="detayUst">
+
+                <div
+                    id="detayHisse"
+                    class="detayHisse">
+                </div>
+
+                <div
+                    id="detayFiyat"
+                    class="detayFiyat">
+                </div>
+
+            </div>
+
+
+            <div
+                id="detaySinyal"
+                class="sinyalBuyuk">
+            </div>
+
+
+            <div class="seviyeler">
+
+                <div class="seviye giris">
+
+                    <span>
+                        📍 Giriş Bölgesi
+                    </span>
+
+                    <strong
+                        id="giris">
+                    </strong>
+
+                </div>
+
+
+                <div class="seviye stop">
+
+                    <span>
+                        🛑 Stop
+                    </span>
+
+                    <strong
+                        id="stop">
+                    </strong>
+
+                </div>
+
+
+                <div class="seviye hedef">
+
+                    <span>
+                        🎯 Hedef 1
+                    </span>
+
+                    <strong
+                        id="hedef1">
+                    </strong>
+
+                </div>
+
+
+                <div class="seviye hedef">
+
+                    <span>
+                        🎯 Hedef 2
+                    </span>
+
+                    <strong
+                        id="hedef2">
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="metrikler">
+
+                <div class="metrik">
+                    RSI
+                    <strong id="rsi"></strong>
+                </div>
+
+                <div class="metrik">
+                    Hacim
+                    <strong id="hacim"></strong>
+                </div>
+
+                <div class="metrik">
+                    Günlük
+                    <strong id="gunluk"></strong>
+                </div>
+
+                <div class="metrik">
+                    EMA 9
+                    <strong id="ema9"></strong>
+                </div>
+
+                <div class="metrik">
+                    EMA 21
+                    <strong id="ema21"></strong>
+                </div>
+
+                <div class="metrik">
+                    EMA 50
+                    <strong id="ema50"></strong>
+                </div>
+
+                <div class="metrik">
+                    EMA 200
+                    <strong id="ema200"></strong>
+                </div>
+
+                <div class="metrik">
+                    20G Direnç
+                    <strong id="direnc"></strong>
+                </div>
+
+                <div class="metrik">
+                    20G Destek
+                    <strong id="destek"></strong>
+                </div>
+
+                <div class="metrik">
+                    52H Zirve
+                    <strong id="zirve"></strong>
+                </div>
+
+                <div class="metrik">
+                    Zirveden
+                    <strong id="zirveden"></strong>
+                </div>
+
+                <div class="metrik">
+                    Risk / Getiri
+                    <strong id="riskGetiri"></strong>
+                </div>
+
+            </div>
+
+
+            <div class="neden">
+
+                <h3>
+                    🧠 Neden bu sinyal?
+                </h3>
+
+                <div id="nedenler"></div>
+
+            </div>
+
+
+            <div class="grafik">
+
+                <h3>
+                    📈 Fiyat Grafiği
+                </h3>
+
+                <canvas id="grafikCanvas"></canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div id="gecmis" class="gecmis">
+    </div>
 
 </div>
 
 
 <script>
 
-document.addEventListener("DOMContentLoaded", function () {
-
-    console.log("BIST Hisse Avcısı JavaScript çalıştı.");
-
-    const taraButonu =
-        document.getElementById("taraButonu");
-
-    const gecmisButonu =
-        document.getElementById("gecmisButonu");
-
-    const durum =
-        document.getElementById("durum");
-
-    const sonuclar =
-        document.getElementById("sonuclar");
-
-    const hata =
-        document.getElementById("hata");
-
-    const gecmis =
-        document.getElementById("gecmis");
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
 
 
-    /*
-     * HİSSE TARAMA
-     */
+        const taraButonu =
+            document.getElementById(
+                "taraButonu"
+            );
 
-    taraButonu.addEventListener("click", async function () {
+        const gecmisButonu =
+            document.getElementById(
+                "gecmisButonu"
+            );
 
-        console.log("Tarama butonuna basıldı.");
+        const geriButonu =
+            document.getElementById(
+                "geriButonu"
+            );
 
-        taraButonu.disabled = true;
-
-        durum.innerText =
-            "⏳ Hisseler taranıyor...";
-
-        hata.innerText = "";
-
-        sonuclar.innerHTML =
-            "<div>Veriler alınıyor, lütfen bekleyin...</div>";
-
-        try {
-
-            const cevap =
-                await fetch("/api/scan", {
-                    method: "GET",
-                    cache: "no-store"
-                });
-
-
-            console.log(
-                "Sunucu cevabı:",
-                cevap.status
+        const tradingViewButonu =
+            document.getElementById(
+                "tradingViewButonu"
             );
 
 
-            if (!cevap.ok) {
+        const status =
+            document.getElementById(
+                "status"
+            );
 
-                throw new Error(
-                    "Sunucu HTTP " +
-                    cevap.status +
-                    " hatası verdi."
+        const hata =
+            document.getElementById(
+                "hata"
+            );
+
+        const kategoriler =
+            document.querySelector(
+                ".kategoriler"
+            );
+
+        const detay =
+            document.getElementById(
+                "detay"
+            );
+
+
+        let tumSonuclar = [];
+
+        let seciliHisse = null;
+
+
+        /*
+        --------------------------------
+        TARAMA
+        --------------------------------
+        */
+
+
+        taraButonu.addEventListener(
+            "click",
+            async function () {
+
+                taraButonu.disabled = true;
+
+                status.innerText =
+                    "⏳ Hisseler taranıyor...";
+
+                hata.innerText = "";
+
+
+                try {
+
+                    const cevap =
+                        await fetch(
+                            "/api/scan",
+                            {
+                                cache: "no-store"
+                            }
+                        );
+
+
+                    if (!cevap.ok) {
+
+                        throw new Error(
+                            "Sunucu HTTP " +
+                            cevap.status +
+                            " hatası verdi."
+                        );
+
+                    }
+
+
+                    const veri =
+                        await cevap.json();
+
+
+                    tumSonuclar =
+                        veri.sonuclar || [];
+
+
+                    status.innerText =
+                        "✅ Tarama tamamlandı — " +
+                        tumSonuclar.length +
+                        " hisse bulundu.";
+
+
+                    kategorileriDoldur();
+
+
+                }
+
+                catch (err) {
+
+                    console.error(err);
+
+                    status.innerText =
+                        "❌ Tarama başarısız.";
+
+                    hata.innerText =
+                        err.message;
+
+                }
+
+                finally {
+
+                    taraButonu.disabled = false;
+
+                }
+
+            }
+        );
+
+
+        /*
+        --------------------------------
+        KATEGORİLER
+        --------------------------------
+        */
+
+
+        function kategorileriDoldur() {
+
+            const gucluAl =
+                document.getElementById(
+                    "gucluAl"
                 );
+
+            const al =
+                document.getElementById(
+                    "al"
+                );
+
+            const takip =
+                document.getElementById(
+                    "takip"
+                );
+
+
+            gucluAl.innerHTML = "";
+
+            al.innerHTML = "";
+
+            takip.innerHTML = "";
+
+
+            const gucluler =
+                tumSonuclar.filter(
+                    function (x) {
+
+                        return x.sinyal
+                            .includes(
+                                "GÜÇLÜ AL"
+                            );
+
+                    }
+                );
+
+
+            const allar =
+                tumSonuclar.filter(
+                    function (x) {
+
+                        return (
+                            x.sinyal
+                            .includes("🟢 AL")
+                            &&
+                            !x.sinyal
+                            .includes(
+                                "GÜÇLÜ"
+                            )
+                        );
+
+                    }
+                );
+
+
+            const takipler =
+                tumSonuclar.filter(
+                    function (x) {
+
+                        return x.sinyal
+                            .includes(
+                                "TAKİBE"
+                            );
+
+                    }
+                );
+
+
+            kartlariGoster(
+                gucluAl,
+                gucluler
+            );
+
+            kartlariGoster(
+                al,
+                allar
+            );
+
+            kartlariGoster(
+                takip,
+                takipler
+            );
+
+        }
+
+
+        function kartlariGoster(
+            alan,
+            hisseler
+        ) {
+
+            if (
+                hisseler.length === 0
+            ) {
+
+                alan.innerHTML =
+                    "<div class='bos'>" +
+                    "Bu kategoride hisse yok." +
+                    "</div>";
+
+                return;
+
             }
 
 
-            const veri =
-                await cevap.json();
+            hisseler.forEach(
+                function (hisse) {
+
+                    const kart =
+                        document.createElement(
+                            "div"
+                        );
 
 
-            console.log(
-                "Tarama sonucu:",
-                veri
-            );
+                    kart.className =
+                        "hisseKart";
 
 
-            durum.innerText =
-                "✅ Tarama tamamlandı — " +
-                veri.sonuc_sayisi +
-                " hisse bulundu.";
+                    kart.innerHTML = `
 
+                        <div class="hisseUst">
 
-            if (
-                !veri.sonuclar ||
-                veri.sonuclar.length === 0
-            ) {
-
-                sonuclar.innerHTML =
-                    "<div>⚠️ Hisse bulunamadı.</div>";
-
-            } else {
-
-                sonuclar.innerHTML =
-                    veri.sonuclar.map(
-                        function (hisse) {
-
-                            let nedenler =
-                                "Belirgin teyit yok.";
-
-                            if (
-                                hisse.nedenler &&
-                                hisse.nedenler.length > 0
-                            ) {
-
-                                nedenler =
-                                    hisse.nedenler
-                                    .map(
-                                        function (neden) {
-                                            return "• " + neden;
-                                        }
-                                    )
-                                    .join("<br>");
-
-                            }
-
-
-                            return `
-
-                            <div class="kart">
-
-                                <div class="ust">
-
-                                    <div class="hisse">
-                                        ${hisse.hisse}
-                                    </div>
-
-                                    <div class="fiyat">
-                                        ${Number(hisse.fiyat).toFixed(2)} ₺
-                                    </div>
-
-                                </div>
-
-
-                                <div class="sinyal">
-
-                                    ${hisse.sinyal}
-
-                                </div>
-
-
-                                <div class="bilgiler">
-
-                                    <div class="bilgi">
-                                        RSI
-                                        <strong>
-                                            ${hisse.rsi}
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        Hacim
-                                        <strong>
-                                            ${hisse.hacim_orani}x
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        Günlük
-                                        <strong>
-                                            ${hisse.gunluk_degisim}%
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        Zirveden
-                                        <strong>
-                                            ${hisse.zirveden_uzaklik}%
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        EMA 9
-                                        <strong>
-                                            ${hisse.ema9}
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        EMA 21
-                                        <strong>
-                                            ${hisse.ema21}
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        EMA 50
-                                        <strong>
-                                            ${hisse.ema50}
-                                        </strong>
-                                    </div>
-
-                                    <div class="bilgi">
-                                        EMA 200
-                                        <strong>
-                                            ${hisse.ema200}
-                                        </strong>
-                                    </div>
-
-                                </div>
-
-
-                                <div class="neden">
-
-                                    <strong>Neden?</strong>
-
-                                    <br>
-
-                                    ${nedenler}
-
-                                </div>
-
+                            <div class="hisseAdi">
+                                ${hisse.hisse}
                             </div>
 
-                            `;
+                            <div class="hisseFiyat">
+                                ${hisse.fiyat} ₺
+                            </div>
+
+                        </div>
+
+                        <div class="sinyal">
+                            ${hisse.sinyal}
+                        </div>
+
+                        <div class="kucukBilgi">
+
+                            RSI: ${hisse.rsi}
+                            &nbsp; | &nbsp;
+
+                            Hacim: ${hisse.hacim_orani}x
+                            &nbsp; | &nbsp;
+
+                            Günlük:
+                            ${hisse.gunluk_degisim}%
+
+                        </div>
+
+                    `;
+
+
+                    kart.addEventListener(
+                        "click",
+                        function () {
+
+                            detayAc(
+                                hisse.hisse
+                            );
 
                         }
-                    ).join("");
-
-            }
+                    );
 
 
-            if (
-                veri.hatalar &&
-                veri.hatalar.length > 0
-            ) {
+                    alan.appendChild(
+                        kart
+                    );
 
-                hata.innerText =
-                    "⚠️ " +
-                    veri.hatalar.length +
-                    " hisseden veri alınamadı.";
-
-            }
-
-        }
-
-        catch (err) {
-
-            console.error(
-                "Tarama hatası:",
-                err
+                }
             );
 
-            durum.innerText =
-                "❌ Tarama sırasında hata oluştu.";
-
-            hata.innerText =
-                err.message;
-
-            sonuclar.innerHTML = "";
-
         }
 
-        finally {
 
-            taraButonu.disabled = false;
+        /*
+        --------------------------------
+        DETAY
+        --------------------------------
+        */
 
-        }
 
-    });
+        async function detayAc(
+            hisseAdi
+        ) {
+
+            seciliHisse =
+                hisseAdi;
 
 
-    /*
-     * SİNYAL GEÇMİŞİ
-     */
+            kategoriler.style.display =
+                "none";
 
-    gecmisButonu.addEventListener(
-        "click",
-        async function () {
+            detay.style.display =
+                "block";
 
-            gecmis.style.display = "block";
 
-            gecmis.innerHTML =
-                "⏳ Geçmiş yükleniyor...";
+            status.innerText =
+                "⏳ " +
+                hisseAdi +
+                " detayları yükleniyor...";
 
 
             try {
 
                 const cevap =
                     await fetch(
-                        "/api/history",
+                        "/api/hisse/" +
+                        encodeURIComponent(
+                            hisseAdi
+                        ),
                         {
-                            cache: "no-store"
+                            cache:
+                                "no-store"
                         }
                     );
 
@@ -469,37 +897,515 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (!cevap.ok) {
 
                     throw new Error(
-                        "Geçmiş alınamadı."
+                        "Hisse verisi alınamadı."
                     );
 
                 }
 
 
-                const veriler =
+                const veri =
                     await cevap.json();
 
 
-                if (
-                    !veriler ||
-                    veriler.length === 0
-                ) {
+                if (!veri.basarili) {
 
-                    gecmis.innerHTML =
-                        "<h3>📜 Sinyal Geçmişi</h3>" +
-                        "<p>Henüz kayıt yok.</p>";
-
-                    return;
+                    throw new Error(
+                        veri.hata ||
+                        "Bilinmeyen hata"
+                    );
 
                 }
 
 
-                let tablo = `
+                const h =
+                    veri.hisse;
 
-                    <h3>
-                        📜 Sinyal Geçmişi
-                    </h3>
 
-                    <table>
+                detayDoldur(h);
+
+
+                status.innerText =
+                    h.hisse +
+                    " detayları hazır.";
+
+            }
+
+            catch (err) {
+
+                hata.innerText =
+                    err.message;
+
+            }
+
+        }
+
+
+        function detayDoldur(h) {
+
+            document.getElementById(
+                "detayHisse"
+            ).innerText =
+                h.hisse;
+
+
+            document.getElementById(
+                "detayFiyat"
+            ).innerText =
+                h.fiyat +
+                " ₺";
+
+
+            document.getElementById(
+                "detaySinyal"
+            ).innerText =
+                h.sinyal;
+
+
+            document.getElementById(
+                "giris"
+            ).innerText =
+                h.giris_alt +
+                " – " +
+                h.giris_ust +
+                " ₺";
+
+
+            document.getElementById(
+                "stop"
+            ).innerText =
+                h.stop +
+                " ₺";
+
+
+            document.getElementById(
+                "hedef1"
+            ).innerText =
+                h.hedef1 +
+                " ₺";
+
+
+            document.getElementById(
+                "hedef2"
+            ).innerText =
+                h.hedef2 +
+                " ₺";
+
+
+            document.getElementById(
+                "rsi"
+            ).innerText =
+                h.rsi;
+
+
+            document.getElementById(
+                "hacim"
+            ).innerText =
+                h.hacim_orani +
+                "x";
+
+
+            document.getElementById(
+                "gunluk"
+            ).innerText =
+                h.gunluk_degisim +
+                "%";
+
+
+            document.getElementById(
+                "ema9"
+            ).innerText =
+                h.ema9;
+
+
+            document.getElementById(
+                "ema21"
+            ).innerText =
+                h.ema21;
+
+
+            document.getElementById(
+                "ema50"
+            ).innerText =
+                h.ema50;
+
+
+            document.getElementById(
+                "ema200"
+            ).innerText =
+                h.ema200;
+
+
+            document.getElementById(
+                "direnc"
+            ).innerText =
+                h.direnc;
+
+
+            document.getElementById(
+                "destek"
+            ).innerText =
+                h.destek;
+
+
+            document.getElementById(
+                "zirve"
+            ).innerText =
+                h.zirve52;
+
+
+            document.getElementById(
+                "zirveden"
+            ).innerText =
+                h.zirveden_uzaklik +
+                "%";
+
+
+            document.getElementById(
+                "riskGetiri"
+            ).innerText =
+                h.risk_getiri;
+
+
+            const nedenler =
+                document.getElementById(
+                    "nedenler"
+                );
+
+
+            if (
+                h.nedenler &&
+                h.nedenler.length
+            ) {
+
+                nedenler.innerHTML =
+                    h.nedenler
+                    .map(
+                        function (neden) {
+
+                            return (
+                                "• " +
+                                neden
+                            );
+
+                        }
+                    )
+                    .join("<br>");
+
+            }
+
+            else {
+
+                nedenler.innerText =
+                    "Belirgin teknik teyit yok.";
+
+            }
+
+
+            grafikCiz(
+                h.grafik
+            );
+
+        }
+
+
+        /*
+        --------------------------------
+        GRAFİK
+        --------------------------------
+        */
+
+
+        function grafikCiz(
+            veriler
+        ) {
+
+            const canvas =
+                document.getElementById(
+                    "grafikCanvas"
+                );
+
+
+            const ctx =
+                canvas.getContext(
+                    "2d"
+                );
+
+
+            const rect =
+                canvas.getBoundingClientRect();
+
+
+            canvas.width =
+                rect.width *
+                window.devicePixelRatio;
+
+
+            canvas.height =
+                300 *
+                window.devicePixelRatio;
+
+
+            ctx.scale(
+                window.devicePixelRatio,
+                window.devicePixelRatio
+            );
+
+
+            const width =
+                rect.width;
+
+            const height =
+                300;
+
+
+            ctx.clearRect(
+                0,
+                0,
+                width,
+                height
+            );
+
+
+            if (
+                !veriler ||
+                veriler.length < 2
+            ) {
+
+                ctx.fillStyle =
+                    "#94a3b8";
+
+                ctx.fillText(
+                    "Grafik verisi yok.",
+                    20,
+                    30
+                );
+
+                return;
+
+            }
+
+
+            const fiyatlar =
+                veriler.map(
+                    x =>
+                    Number(x.fiyat)
+                );
+
+
+            const min =
+                Math.min(
+                    ...fiyatlar
+                );
+
+            const max =
+                Math.max(
+                    ...fiyatlar
+                );
+
+
+            const aralik =
+                max - min || 1;
+
+
+            ctx.beginPath();
+
+
+            veriler.forEach(
+                function (nokta, i) {
+
+                    const x =
+                        10 +
+                        (
+                            i /
+                            (veriler.length - 1)
+                        ) *
+                        (width - 20);
+
+
+                    const y =
+                        height -
+                        20 -
+                        (
+                            (
+                                nokta.fiyat -
+                                min
+                            ) /
+                            aralik
+                        ) *
+                        (
+                            height - 40
+                        );
+
+
+                    if (i === 0) {
+
+                        ctx.moveTo(
+                            x,
+                            y
+                        );
+
+                    }
+
+                    else {
+
+                        ctx.lineTo(
+                            x,
+                            y
+                        );
+
+                    }
+
+                }
+            );
+
+
+            ctx.strokeStyle =
+                "#60a5fa";
+
+            ctx.lineWidth = 2;
+
+            ctx.stroke();
+
+
+            ctx.fillStyle =
+                "#94a3b8";
+
+            ctx.font =
+                "12px Arial";
+
+
+            ctx.fillText(
+                max.toFixed(2),
+                10,
+                15
+            );
+
+
+            ctx.fillText(
+                min.toFixed(2),
+                10,
+                height - 5
+            );
+
+        }
+
+
+        /*
+        --------------------------------
+        GERİ DÖN
+        --------------------------------
+        */
+
+
+        geriButonu.addEventListener(
+            "click",
+            function () {
+
+                detay.style.display =
+                    "none";
+
+                kategoriler.style.display =
+                    "grid";
+
+                hata.innerText = "";
+
+            }
+        );
+
+
+        /*
+        --------------------------------
+        TRADINGVIEW
+        --------------------------------
+        */
+
+
+        tradingViewButonu.addEventListener(
+            "click",
+            function () {
+
+                if (!seciliHisse) {
+                    return;
+                }
+
+
+                const url =
+                    "https://www.tradingview.com/symbols/" +
+                    seciliHisse +
+                    "/";
+
+
+                window.open(
+                    url,
+                    "_blank"
+                );
+
+            }
+        );
+
+
+        /*
+        --------------------------------
+        GEÇMİŞ
+        --------------------------------
+        */
+
+
+        gecmisButonu.addEventListener(
+            "click",
+            async function () {
+
+                const alan =
+                    document.getElementById(
+                        "gecmis"
+                    );
+
+
+                alan.style.display =
+                    "block";
+
+
+                alan.innerHTML =
+                    "⏳ Geçmiş yükleniyor...";
+
+
+                try {
+
+                    const cevap =
+                        await fetch(
+                            "/api/history",
+                            {
+                                cache:
+                                    "no-store"
+                            }
+                        );
+
+
+                    const veriler =
+                        await cevap.json();
+
+
+                    if (
+                        !veriler ||
+                        !veriler.length
+                    ) {
+
+                        alan.innerHTML =
+                            "<h3>Sinyal Geçmişi</h3>" +
+                            "<p>Henüz kayıt yok.</p>";
+
+                        return;
+
+                    }
+
+
+                    let html = `
+
+                        <h3>
+                            📜 Sinyal Geçmişi
+                        </h3>
+
+                        <table>
 
                         <tr>
                             <th>Tarih</th>
@@ -508,63 +1414,66 @@ document.addEventListener("DOMContentLoaded", function () {
                             <th>Fiyat</th>
                         </tr>
 
-                `;
+                    `;
 
 
-                veriler
-                .slice()
-                .reverse()
-                .forEach(
-                    function (kayit) {
+                    veriler
+                    .slice()
+                    .reverse()
+                    .forEach(
+                        function (x) {
 
-                        tablo += `
+                            html += `
 
-                            <tr>
+                                <tr>
 
-                                <td>
-                                    ${kayit.tarih}
-                                </td>
+                                    <td>
+                                        ${x.tarih}
+                                    </td>
 
-                                <td>
-                                    <strong>
-                                        ${kayit.hisse}
-                                    </strong>
-                                </td>
+                                    <td>
+                                        ${x.hisse}
+                                    </td>
 
-                                <td>
-                                    ${kayit.sinyal}
-                                </td>
+                                    <td>
+                                        ${x.sinyal}
+                                    </td>
 
-                                <td>
-                                    ${kayit.fiyat} ₺
-                                </td>
+                                    <td>
+                                        ${x.fiyat} ₺
+                                    </td>
 
-                            </tr>
+                                </tr>
 
-                        `;
+                            `;
 
-                    }
-                );
+                        }
+                    );
 
 
-                tablo += "</table>";
+                    html +=
+                        "</table>";
 
-                gecmis.innerHTML = tablo;
+
+                    alan.innerHTML =
+                        html;
+
+                }
+
+                catch (err) {
+
+                    alan.innerHTML =
+                        "❌ Geçmiş alınamadı: " +
+                        err.message;
+
+                }
 
             }
+        );
 
-            catch (err) {
 
-                gecmis.innerHTML =
-                    "❌ " +
-                    err.message;
-
-            }
-
-        }
-    );
-
-});
+    }
+);
 
 </script>
 
