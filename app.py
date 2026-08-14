@@ -4,8 +4,12 @@ import pandas as pd
 import numpy as np
 import time
 import os
+import json
+from datetime import datetime
 
 app = Flask(__name__)
+
+HISTORY_FILE = "signal_history.json"
 
 BIST_HISSELERI = [
     "ASELS.IS",
@@ -32,6 +36,7 @@ BIST_HISSELERI = [
 
 
 def rsi_hesapla(series, period=14):
+
     delta = series.diff()
 
     kazanc = delta.clip(lower=0)
@@ -42,16 +47,14 @@ def rsi_hesapla(series, period=14):
 
     rs = ort_kazanc / ort_kayip.replace(0, np.nan)
 
-    rsi = 100 - (100 / (1 + rs))
-
-    return rsi
+    return 100 - (100 / (1 + rs))
 
 
-def yahoo_verisi_al(ticker, deneme=3):
+def veri_al(ticker):
 
-    son_hata = "Yahoo veri döndürmedi"
+    son_hata = "Veri alınamadı"
 
-    for i in range(deneme):
+    for deneme in range(3):
 
         try:
 
@@ -67,58 +70,55 @@ def yahoo_verisi_al(ticker, deneme=3):
 
             if df is not None and not df.empty:
 
-                # MultiIndex problemi
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
 
-                if "Close" in df.columns and "Volume" in df.columns:
+                if (
+                    "Close" in df.columns
+                    and "Volume" in df.columns
+                ):
                     return df, None
 
-                son_hata = "Close/Volume verisi bulunamadı"
-
-            else:
-                son_hata = "Yahoo boş veri döndürdü"
+                son_hata = "Close veya Volume verisi yok"
 
         except Exception as e:
 
             son_hata = str(e)
 
-        time.sleep(2 * (i + 1))
+        time.sleep(2 * (deneme + 1))
 
     return None, son_hata
 
 
 def hisse_analiz(ticker):
 
+    df, hata = veri_al(ticker)
+
+    if df is None:
+        return None, hata
+
     try:
 
-        df, hata = yahoo_verisi_al(ticker)
-
-        if df is None:
-            return None, hata
-
-        df = df.copy()
-
-        df["Close"] = pd.to_numeric(
+        close = pd.to_numeric(
             df["Close"],
             errors="coerce"
         )
 
-        df["Volume"] = pd.to_numeric(
+        volume = pd.to_numeric(
             df["Volume"],
             errors="coerce"
         )
 
-        df = df.dropna(subset=["Close"])
+        data = pd.DataFrame({
+            "close": close,
+            "volume": volume
+        }).dropna()
 
-        if len(df) < 60:
-            return None, "Yeterli geçmiş veri yok"
+        if len(data) < 60:
+            return None, "Yeterli veri yok"
 
-        close = df["Close"]
-
-        volume = df["Volume"].reindex(
-            close.index
-        ).fillna(0)
+        close = data["close"]
+        volume = data["volume"]
 
         # EMA
         ema9 = close.ewm(
@@ -142,24 +142,32 @@ def hisse_analiz(ticker):
         ).mean()
 
         # RSI
-        rsi = rsi_hesapla(
-            close,
-            14
-        )
+        rsi = rsi_hesapla(close)
 
-        # Hacim
+        # Ortalama hacim
         volume20 = volume.rolling(20).mean()
 
         # 20 günlük direnç
-        resistance20 = close.shift(1).rolling(20).max()
+        resistance20 = (
+            close.shift(1)
+            .rolling(20)
+            .max()
+        )
+
+        # 52 haftalık zirve
+        high52 = (
+            close
+            .rolling(252, min_periods=60)
+            .max()
+        )
 
         fiyat = float(close.iloc[-1])
 
-        onceki = float(close.iloc[-2])
+        onceki_fiyat = float(close.iloc[-2])
 
         gunluk_degisim = (
-            ((fiyat / onceki) - 1) * 100
-            if onceki
+            ((fiyat / onceki_fiyat) - 1) * 100
+            if onceki_fiyat != 0
             else 0
         )
 
@@ -169,196 +177,205 @@ def hisse_analiz(ticker):
             else 50
         )
 
-        hacim_son = float(
-            volume.iloc[-1]
+        ortalama_hacim = float(
+            volume20.iloc[-1]
         )
 
-        hacim_ort = (
-            float(volume20.iloc[-1])
-            if pd.notna(volume20.iloc[-1])
-            else 0
+        if ortalama_hacim > 0:
+
+            hacim_orani = (
+                float(volume.iloc[-1])
+                / ortalama_hacim
+            )
+
+        else:
+
+            hacim_orani = 0
+
+        zirve = float(
+            high52.iloc[-1]
         )
 
-        hacim_orani = (
-            hacim_son / hacim_ort
-            if hacim_ort > 0
-            else 0
-        )
+        if zirve > 0:
 
-        ema9_son = float(
-            ema9.iloc[-1]
-        )
+            zirveden_uzaklik = (
+                (fiyat / zirve - 1) * 100
+            )
 
-        ema21_son = float(
-            ema21.iloc[-1]
-        )
+        else:
 
-        ema50_son = float(
-            ema50.iloc[-1]
-        )
+            zirveden_uzaklik = 0
 
-        ema200_son = float(
-            ema200.iloc[-1]
-        )
-
-        direnç = (
-            float(resistance20.iloc[-1])
-            if pd.notna(resistance20.iloc[-1])
-            else fiyat
+        direnç = float(
+            resistance20.iloc[-1]
         )
 
         # -------------------------
-        # TEKNİK PUAN
+        # GİZLİ PUANLAMA
         # -------------------------
 
         puan = 0
 
-        sinyaller = []
+        nedenler = []
 
-        # EMA9 > EMA21
-        if ema9_son > ema21_son:
-
-            puan += 15
-
-            sinyaller.append(
-                "EMA9 > EMA21"
-            )
-
-        # Fiyat EMA21 üzerinde
-        if fiyat >= ema21_son:
-
-            puan += 10
-
-            sinyaller.append(
-                "Fiyat EMA21 üzerinde"
-            )
-
-        # EMA21 > EMA50
-        if ema21_son > ema50_son:
-
-            puan += 10
-
-            sinyaller.append(
-                "EMA21 > EMA50"
-            )
-
-        # Fiyat EMA50 üzerinde
-        if fiyat >= ema50_son:
-
-            puan += 10
-
-            sinyaller.append(
-                "Fiyat EMA50 üzerinde"
-            )
-
-        # Uzun vadeli trend
-        if fiyat > ema200_son:
-
-            puan += 10
-
-            sinyaller.append(
-                "EMA200 üzerinde"
-            )
-
-        # RSI
-        if 50 <= rsi_son <= 68:
-
-            puan += 15
-
-            sinyaller.append(
-                "Sağlıklı RSI"
-            )
-
-        elif 40 <= rsi_son < 50:
-
-            puan += 7
-
-            sinyaller.append(
-                "RSI toparlanıyor"
-            )
-
-        elif rsi_son > 70:
-
-            puan -= 5
-
-            sinyaller.append(
-                "RSI yüksek"
-            )
-
-        # Hacim
+        # HACİM
         if hacim_orani >= 2:
 
-            puan += 15
+            puan += 30
 
-            sinyaller.append(
-                "Çok güçlü hacim"
+            nedenler.append(
+                "Hacim 2x üzeri"
             )
 
         elif hacim_orani >= 1.5:
 
-            puan += 10
+            puan += 22
 
-            sinyaller.append(
-                "Hacim artışı"
+            nedenler.append(
+                "Hacim belirgin artıyor"
             )
 
         elif hacim_orani >= 1.2:
 
-            puan += 5
+            puan += 12
 
-            sinyaller.append(
+            nedenler.append(
                 "Hacim destekli"
             )
 
-        # Direnç kırılımı
+        # FİYAT + HACİM
+        if (
+            gunluk_degisim > 0
+            and hacim_orani >= 1.2
+        ):
+
+            puan += 15
+
+            nedenler.append(
+                "Fiyat ve hacim birlikte yükseliyor"
+            )
+
+        # KISA TREND
+        if ema9.iloc[-1] > ema21.iloc[-1]:
+
+            puan += 12
+
+            nedenler.append(
+                "Kısa vadeli trend pozitif"
+            )
+
+        # ORTA TREND
+        if ema21.iloc[-1] > ema50.iloc[-1]:
+
+            puan += 10
+
+            nedenler.append(
+                "Orta vadeli trend pozitif"
+            )
+
+        # RSI
+        if 45 <= rsi_son <= 65:
+
+            puan += 12
+
+            nedenler.append(
+                "RSI sağlıklı bölgede"
+            )
+
+        elif 65 < rsi_son <= 70:
+
+            puan += 5
+
+            nedenler.append(
+                "RSI yükselmiş"
+            )
+
+        # DİRENÇ
         if fiyat > direnç:
 
             puan += 15
 
-            sinyaller.append(
-                "20G direnç kırılımı"
+            nedenler.append(
+                "20 günlük direnç kırıldı"
             )
 
-        # Günlük momentum
-        if gunluk_degisim > 3:
+        # ZİRVE UZAKLIĞI
+        if -65 <= zirveden_uzaklik <= -30:
 
-            puan += 5
+            puan += 8
 
-            sinyaller.append(
-                "Güçlü günlük momentum"
+            nedenler.append(
+                "Zirveden hâlâ uzak"
             )
 
-        # 0-100 arası sınırla
-        puan = max(
-            0,
-            min(100, puan)
-        )
+        # AŞIRI ISINMA
+        if rsi_son > 72:
 
-        # Hisse adını temizle
-        isim = ticker.replace(
-            ".IS",
-            ""
-        )
+            puan -= 15
 
-        sonuc = {
+            nedenler.append(
+                "RSI aşırı yüksek"
+            )
 
-            "hisse": isim,
+        if gunluk_degisim > 8:
+
+            puan -= 10
+
+            nedenler.append(
+                "Günlük yükseliş aşırı"
+            )
+
+        # -------------------------
+        # SİNYAL
+        # -------------------------
+
+        if (
+            rsi_son > 72
+            or gunluk_degisim > 8
+        ):
+
+            sinyal = "⚠️ AŞIRI YÜKSELDİ"
+
+        elif (
+            puan >= 70
+            and hacim_orani >= 1.5
+        ):
+
+            sinyal = "🟢 AL"
+
+        elif puan >= 55:
+
+            sinyal = "🟢 ALIM İÇİN UYGUN"
+
+        elif puan >= 38:
+
+            sinyal = "👀 TAKİBE AL"
+
+        elif puan >= 22:
+
+            sinyal = "⏳ BEKLE"
+
+        else:
+
+            sinyal = "🔴 UZAK DUR"
+
+        return {
+
+            "hisse": ticker.replace(
+                ".IS",
+                ""
+            ),
 
             "fiyat": round(
                 fiyat,
                 2
             ),
 
-            "puan": int(puan),
+            "sinyal": sinyal,
 
             "rsi": round(
                 rsi_son,
                 1
-            ),
-
-            "gunluk_degisim": round(
-                gunluk_degisim,
-                2
             ),
 
             "hacim_orani": round(
@@ -366,23 +383,33 @@ def hisse_analiz(ticker):
                 2
             ),
 
+            "gunluk_degisim": round(
+                gunluk_degisim,
+                2
+            ),
+
+            "zirveden_uzaklik": round(
+                zirveden_uzaklik,
+                1
+            ),
+
             "ema9": round(
-                ema9_son,
+                float(ema9.iloc[-1]),
                 2
             ),
 
             "ema21": round(
-                ema21_son,
+                float(ema21.iloc[-1]),
                 2
             ),
 
             "ema50": round(
-                ema50_son,
+                float(ema50.iloc[-1]),
                 2
             ),
 
             "ema200": round(
-                ema200_son,
+                float(ema200.iloc[-1]),
                 2
             ),
 
@@ -391,18 +418,58 @@ def hisse_analiz(ticker):
                 2
             ),
 
-            "sinyaller": sinyaller
-        }
+            "nedenler": nedenler,
 
-        return sonuc, None
+            # Kullanıcıya göstermiyoruz.
+            "puan": int(
+                max(
+                    0,
+                    min(100, puan)
+                )
+            )
+
+        }, None
 
     except Exception as e:
 
         return None, str(e)
 
 
+def gecmis_oku():
+
+    try:
+
+        with open(
+            HISTORY_FILE,
+            "r",
+            encoding="utf-8"
+        ) as dosya:
+
+            return json.load(dosya)
+
+    except:
+
+        return []
+
+
+def gecmis_kaydet(veriler):
+
+    with open(
+        HISTORY_FILE,
+        "w",
+        encoding="utf-8"
+    ) as dosya:
+
+        json.dump(
+            veriler[-1000:],
+            dosya,
+            ensure_ascii=False,
+            indent=2
+        )
+
+
 @app.route("/")
-def index():
+def ana_sayfa():
 
     return render_template(
         "index.html"
@@ -410,7 +477,7 @@ def index():
 
 
 @app.route("/api/scan")
-def scan():
+def tara():
 
     sonuclar = []
 
@@ -432,54 +499,87 @@ def scan():
 
             hatalar.append({
 
-                "hisse": ticker.replace(
-                    ".IS",
-                    ""
-                ),
+                "hisse":
+                    ticker.replace(
+                        ".IS",
+                        ""
+                    ),
 
                 "hata": hata
             })
 
-        # Yahoo'ya aşırı hızlı istek göndermemek için
-        time.sleep(0.8)
+        time.sleep(0.7)
 
-    # En yüksek puan önce
+    # En güçlü hisseler üstte
     sonuclar.sort(
-        key=lambda x: (
-            x["puan"],
-            x["hacim_orani"],
-            x["gunluk_degisim"]
-        ),
+        key=lambda x: x["puan"],
         reverse=True
+    )
+
+    # Sinyal geçmişine kaydet
+    tarih = datetime.now().strftime(
+        "%Y-%m-%d %H:%M"
+    )
+
+    gecmis = gecmis_oku()
+
+    for sonuc in sonuclar:
+
+        gecmis.append({
+
+            "tarih": tarih,
+
+            "hisse":
+                sonuc["hisse"],
+
+            "sinyal":
+                sonuc["sinyal"],
+
+            "fiyat":
+                sonuc["fiyat"]
+
+        })
+
+    gecmis_kaydet(
+        gecmis
     )
 
     return jsonify({
 
         "basarili": True,
 
-        "toplam": len(
-            BIST_HISSELERI
-        ),
+        "sonuc_sayisi":
+            len(sonuclar),
 
-        "sonuc_sayisi": len(
-            sonuclar
-        ),
+        "sonuclar":
+            sonuclar,
 
-        "sonuclar": sonuclar,
+        "hatalar":
+            hatalar
 
-        "hatalar": hatalar
     })
 
 
+@app.route("/api/history")
+def sinyal_gecmisi():
+
+    gecmis = gecmis_oku()
+
+    return jsonify(
+        gecmis[-200:]
+    )
+
+
 @app.route("/health")
-def health():
+def saglik():
 
     return jsonify({
 
         "status": "ok",
 
         "uygulama":
-            "BIST Hisse Avcısı V4"
+            "BIST Hisse Avcısı V5"
+
     })
 
 
@@ -493,10 +593,7 @@ if __name__ == "__main__":
     )
 
     app.run(
-
         host="0.0.0.0",
-
         port=port,
-
         debug=False
     )
