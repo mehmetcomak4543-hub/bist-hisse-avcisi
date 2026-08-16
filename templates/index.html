@@ -1,1882 +1,1818 @@
 <!DOCTYPE html>
 <html lang="tr">
-
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
-<meta charset="UTF-8">
+    <title>BIST Hisse Avcısı V7</title>
 
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+    <style>
 
-<title>BIST Hisse Avcısı V6</title>
+        * {
+            box-sizing: border-box;
+        }
 
-<style>
+        body {
+            margin: 0;
+            background: #0b1220;
+            color: #e5e7eb;
+            font-family: Arial, Helvetica, sans-serif;
+        }
 
-* {
-    box-sizing: border-box;
-}
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: auto;
+            padding: 15px;
+        }
 
-body {
-    margin: 0;
-    background: #0f172a;
-    color: #e5e7eb;
-    font-family: Arial, sans-serif;
-}
+        /* =========================
+           HEADER
+        ========================= */
 
-.container {
-    max-width: 1150px;
-    margin: auto;
-    padding: 18px;
-}
+        header {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 15px;
+        }
 
-h1 {
-    margin: 0 0 5px 0;
-}
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
 
-.subtitle {
-    color: #94a3b8;
-    margin-bottom: 20px;
-}
+        .subtitle {
+            margin-top: 7px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
 
-button {
-    border: none;
-    border-radius: 10px;
-    padding: 12px 17px;
-    background: #2563eb;
-    color: white;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-    margin-right: 7px;
-    margin-bottom: 8px;
-}
+        /* =========================
+           BUTTONS
+        ========================= */
 
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+        }
 
-#status {
-    background: #1e293b;
-    border-radius: 10px;
-    padding: 13px;
-    margin: 15px 0;
-    border: 1px solid #334155;
-}
+        button {
+            border: 0;
+            border-radius: 10px;
+            padding: 12px 16px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
 
-.kategoriler {
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(300px, 1fr));
-    gap: 15px;
-}
+        button:hover {
+            opacity: .9;
+        }
 
-.kategori {
-    background: #1e293b;
-    border-radius: 14px;
-    padding: 15px;
-    border: 1px solid #334155;
-}
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
 
-.kategori h2 {
-    margin-top: 0;
-    font-size: 19px;
-}
+        .secondary {
+            background: #334155;
+        }
 
-.guclu h2 {
-    color: #fbbf24;
-}
+        /* =========================
+           STATUS
+        ========================= */
 
-.al h2 {
-    color: #4ade80;
-}
+        .status-box {
+            margin-top: 14px;
+            background: #0f172a;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid #243044;
+        }
 
-.takip h2 {
-    color: #60a5fa;
-}
+        .progress {
+            width: 100%;
+            height: 8px;
+            background: #1e293b;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
 
-.hisseKart {
-    background: #0f172a;
-    border-radius: 11px;
-    padding: 13px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    border: 1px solid #334155;
-    transition: 0.15s;
-}
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #22c55e;
+            transition: width .3s;
+        }
 
-.hisseKart:hover {
-    transform: translateY(-2px);
-    border-color: #60a5fa;
-}
+        /* =========================
+           STATS
+        ========================= */
 
-.hisseUst {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-}
+        .stats {
+            display: grid;
+            grid-template-columns:
+                repeat(4, 1fr);
 
-.hisseAdi {
-    font-size: 20px;
-    font-weight: bold;
-}
+            gap: 10px;
+            margin-bottom: 15px;
+        }
 
-.hisseFiyat {
-    font-weight: bold;
-    white-space: nowrap;
-}
+        .stat {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 14px;
+        }
 
-.kucukBilgi {
-    color: #94a3b8;
-    font-size: 12px;
-    margin-top: 7px;
-}
+        .stat-title {
+            color: #94a3b8;
+            font-size: 12px;
+        }
 
-.sinyal {
-    margin-top: 8px;
-    font-weight: bold;
-}
+        .stat-value {
+            font-size: 21px;
+            font-weight: bold;
+            margin-top: 6px;
+        }
 
-#detay {
-    display: none;
-    margin-top: 20px;
-}
+        /* =========================
+           FILTER
+        ========================= */
 
-.detayKart {
-    background: #1e293b;
-    border-radius: 15px;
-    padding: 18px;
-    border: 1px solid #334155;
-}
+        .filters {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 15px;
 
-.detayUst {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    margin-top: 10px;
-}
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
 
-.detayHisse {
-    font-size: 30px;
-    font-weight: bold;
-}
+        .filter {
+            background: #1e293b;
+            border-radius: 9px;
+            padding: 9px 12px;
+            color: #cbd5e1;
+            cursor: pointer;
+            font-size: 13px;
+        }
 
-.detayFiyat {
-    font-size: 24px;
-    font-weight: bold;
-}
+        .filter.active {
+            background: #2563eb;
+            color: white;
+        }
 
-.sinyalBuyuk {
-    font-size: 20px;
-    font-weight: bold;
-    margin: 15px 0;
-}
+        /* =========================
+           RESULTS
+        ========================= */
 
-.seviyeler {
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(130px, 1fr));
-    gap: 10px;
-    margin: 15px 0;
-}
+        .results {
+            display: grid;
 
-.seviye {
-    background: #0f172a;
-    padding: 12px;
-    border-radius: 10px;
-}
+            grid-template-columns:
+                repeat(auto-fill, minmax(300px, 1fr));
 
-.seviye span {
-    color: #94a3b8;
-    font-size: 12px;
-}
+            gap: 12px;
+        }
 
-.seviye strong {
-    display: block;
-    font-size: 18px;
-    margin-top: 5px;
-}
+        .card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: transform .15s,
+                        border .15s;
+        }
 
-.giris {
-    border: 1px solid #4ade80;
-}
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: #475569;
+        }
 
-.stop {
-    border: 1px solid #f87171;
-}
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
 
-.hedef {
-    border: 1px solid #60a5fa;
-}
+        .stock {
+            font-size: 20px;
+            font-weight: bold;
+        }
 
-.metrikler {
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(130px, 1fr));
-    gap: 8px;
-}
+        .price {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 7px;
+        }
 
-.metrik {
-    background: #0f172a;
-    border-radius: 9px;
-    padding: 10px;
-    font-size: 12px;
-    color: #94a3b8;
-}
+        .signal {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 6px 9px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #334155;
+        }
 
-.metrik strong {
-    display: block;
-    color: white;
-    font-size: 15px;
-    margin-top: 4px;
-}
+        .strong-buy {
+            background: #166534;
+            color: #dcfce7;
+        }
 
-.neden {
-    margin-top: 18px;
-    color: #cbd5e1;
-    line-height: 1.7;
-}
+        .buy {
+            background: #14532d;
+            color: #bbf7d0;
+        }
 
-.grafik {
-    margin-top: 20px;
-    background: #0f172a;
-    border-radius: 12px;
-    padding: 12px;
-}
+        .watch {
+            background: #854d0e;
+            color: #fef9c3;
+        }
 
-canvas {
-    width: 100%;
-    height: 300px;
-}
+        .squeeze {
+            background: #3730a3;
+            color: #e0e7ff;
+        }
 
-.gecmis {
-    display: none;
-    margin-top: 20px;
-    background: #1e293b;
-    border-radius: 12px;
-    padding: 15px;
-    overflow-x: auto;
-}
+        .explode {
+            background: #9a3412;
+            color: #ffedd5;
+        }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+        .danger {
+            background: #991b1b;
+            color: #fee2e2;
+        }
 
-th,
-td {
-    padding: 8px;
-    border-bottom: 1px solid #334155;
-    text-align: left;
-    font-size: 13px;
-}
+        .wait {
+            background: #334155;
+            color: #cbd5e1;
+        }
 
-.hata {
-    color: #f87171;
-    margin-top: 10px;
-    white-space: pre-wrap;
-}
+        /* =========================
+           GRID DETAILS
+        ========================= */
 
-.bos {
-    color: #64748b;
-    font-size: 13px;
-}
+        .metrics {
+            display: grid;
+            grid-template-columns:
+                repeat(2, 1fr);
 
-.yukleniyor {
-    text-align: center;
-    padding: 20px;
-    color: #94a3b8;
-}
+            gap: 8px;
+            margin-top: 13px;
+        }
 
-.sayac {
-    margin-top: 10px;
-    color: #94a3b8;
-    font-size: 13px;
-}
+        .metric {
+            background: #0f172a;
+            padding: 9px;
+            border-radius: 8px;
+        }
 
-@media (max-width: 600px) {
+        .metric-title {
+            color: #94a3b8;
+            font-size: 11px;
+        }
 
-    .container {
-        padding: 12px;
-    }
+        .metric-value {
+            margin-top: 4px;
+            font-weight: bold;
+        }
 
-    h1 {
-        font-size: 25px;
-    }
+        .positive {
+            color: #4ade80;
+        }
 
-    .detayHisse {
-        font-size: 25px;
-    }
+        .negative {
+            color: #f87171;
+        }
 
-    .detayFiyat {
-        font-size: 20px;
-    }
+        /* =========================
+           MODAL
+        ========================= */
 
-    button {
-        width: 100%;
-        margin-right: 0;
-    }
+        .modal {
+            display: none;
 
-}
+            position: fixed;
+            inset: 0;
 
-</style>
+            background: rgba(0,0,0,.75);
 
+            z-index: 1000;
+
+            overflow-y: auto;
+        }
+
+        .modal-content {
+            width: calc(100% - 24px);
+            max-width: 900px;
+
+            margin: 25px auto;
+
+            background: #111827;
+
+            border: 1px solid #334155;
+
+            border-radius: 16px;
+
+            padding: 18px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .close {
+            background: #334155;
+            padding: 8px 12px;
+        }
+
+        .detail-grid {
+            display: grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap: 10px;
+
+            margin-top: 15px;
+        }
+
+        .detail-box {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 10px;
+        }
+
+        .detail-box small {
+            color: #94a3b8;
+        }
+
+        .detail-box strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 17px;
+        }
+
+        /* =========================
+           REASONS
+        ========================= */
+
+        .reasons {
+            margin-top: 15px;
+        }
+
+        .reason {
+            background: #0f172a;
+            padding: 9px;
+            border-radius: 8px;
+            margin-top: 6px;
+            font-size: 13px;
+        }
+
+        /* =========================
+           TABLE
+        ========================= */
+
+        .history {
+            margin-top: 20px;
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 14px;
+            padding: 15px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            padding: 9px;
+            border-bottom: 1px solid #243044;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            color: #94a3b8;
+        }
+
+        /* =========================
+           EMPTY
+        ========================= */
+
+        .empty {
+            background: #111827;
+            border: 1px dashed #334155;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media(max-width: 800px) {
+
+            .stats {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+            .detail-grid {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+        }
+
+        @media(max-width: 500px) {
+
+            .container {
+                padding: 9px;
+            }
+
+            .stats {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+
+            .results {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            button {
+                flex: 1;
+            }
+        }
+
+    </style>
 </head>
-
 
 <body>
 
-
 <div class="container">
 
+    <header>
 
-<h1>📈 BIST Hisse Avcısı V6</h1>
+        <h1>🦅 BIST Hisse Avcısı V7</h1>
+
+        <div class="subtitle">
+            Tüm BIST hisselerini teknik analiz,
+            sıkışma ve patlama potansiyeline göre tarar.
+        </div>
+
+        <div class="controls">
+
+            <button id="scanBtn"
+                    onclick="scanMarket()">
+                🔍 BIST'i Tara
+            </button>
+
+            <button class="secondary"
+                    onclick="loadHistory()">
+                📜 Geçmiş
+            </button>
+
+            <button class="secondary"
+                    onclick="loadInfo()">
+                ℹ️ Sistem
+            </button>
+
+        </div>
+
+        <div class="status-box">
+
+            <div id="status">
+                Hazır. Tarama başlatmak için
+                BIST'i Tara butonuna bas.
+            </div>
+
+            <div class="progress">
+                <div id="progressBar"
+                     class="progress-bar">
+                </div>
+            </div>
+
+        </div>
+
+    </header>
 
 
-<div class="subtitle">
+    <!-- =====================
+         STATS
+    ====================== -->
 
-Güçlü AL • AL • Takibe AL • Teknik işlem planı
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-title">
+                Toplam Hisse
+            </div>
+
+            <div class="stat-value"
+                 id="totalStocks">
+                -
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Güçlü AL
+            </div>
+
+            <div class="stat-value"
+                 id="strongBuy">
+                -
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Sıkışma
+            </div>
+
+            <div class="stat-value"
+                 id="squeezeCount">
+                -
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Sonuç
+            </div>
+
+            <div class="stat-value"
+                 id="resultCount">
+                -
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- =====================
+         FILTERS
+    ====================== -->
+
+    <div class="filters">
+
+        <div class="filter active"
+             onclick="setFilter('ALL', this)">
+            Tümü
+        </div>
+
+        <div class="filter"
+             onclick="setFilter('GÜÇLÜ AL', this)">
+            🔥 Güçlü AL
+        </div>
+
+        <div class="filter"
+             onclick="setFilter('AL', this)">
+            🟢 AL
+        </div>
+
+        <div class="filter"
+             onclick="setFilter('TAKİBE AL', this)">
+            👀 Takibe Al
+        </div>
+
+        <div class="filter"
+             onclick="setFilter('SIKIŞMA', this)">
+            🔒 Sıkışma
+        </div>
+
+        <div class="filter"
+             onclick="setFilter('PATLAMA', this)">
+            💥 Patlama
+        </div>
+
+    </div>
+
+
+    <!-- =====================
+         RESULTS
+    ====================== -->
+
+    <div id="results"
+         class="results">
+
+        <div class="empty">
+
+            Henüz tarama yapılmadı.
+
+            <br><br>
+
+            <button onclick="scanMarket()">
+                🔍 Taramayı Başlat
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================
+         HISTORY
+    ====================== -->
+
+    <div id="historySection"
+         class="history"
+         style="display:none;">
+
+        <h3>
+            📜 Sinyal Geçmişi
+        </h3>
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Tarih</th>
+                        <th>Hisse</th>
+                        <th>Sinyal</th>
+                        <th>Fiyat</th>
+                        <th>Sıkışma</th>
+                        <th>Patlama</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="historyBody">
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
 
 </div>
 
 
-<button id="taraButonu">
+<!-- =========================
+     MODAL
+========================= -->
+
+<div id="detailModal"
+     class="modal"
+     onclick="closeModal(event)">
+
+    <div class="modal-content"
+         onclick="event.stopPropagation()">
+
+        <div class="modal-header">
+
+            <div>
+
+                <h2 id="detailTitle">
+                    Hisse Detayı
+                </h2>
 
-🔎 TÜM HİSSELERİ TARA
+                <div id="detailSignal">
+                </div>
 
-</button>
+            </div>
 
+            <button class="close"
+                    onclick="hideModal()">
+                ✕
+            </button>
 
-<button id="gecmisButonu">
+        </div>
 
-📜 SİNYAL GEÇMİŞİ
 
-</button>
+        <div class="detail-grid">
 
+            <div class="detail-box">
+                <small>Fiyat</small>
+                <strong id="dPrice">-</strong>
+            </div>
 
-<div id="status">
+            <div class="detail-box">
+                <small>RSI</small>
+                <strong id="dRSI">-</strong>
+            </div>
 
-Hazır. Tarama başlatmak için butona bas.
+            <div class="detail-box">
+                <small>Hacim</small>
+                <strong id="dVolume">-</strong>
+            </div>
 
-</div>
+            <div class="detail-box">
+                <small>Günlük</small>
+                <strong id="dDaily">-</strong>
+            </div>
 
+            <div class="detail-box">
+                <small>Normal Puan</small>
+                <strong id="dScore">-</strong>
+            </div>
 
-<div id="hata" class="hata"></div>
+            <div class="detail-box">
+                <small>Sıkışma</small>
+                <strong id="dSqueeze">-</strong>
+            </div>
 
+            <div class="detail-box">
+                <small>Patlama</small>
+                <strong id="dExplosion">-</strong>
+            </div>
 
-<div id="sayac" class="sayac"></div>
+            <div class="detail-box">
+                <small>Direnç</small>
+                <strong id="dResistance">-</strong>
+            </div>
 
+            <div class="detail-box">
+                <small>Destek</small>
+                <strong id="dSupport">-</strong>
+            </div>
 
-<div class="kategoriler">
+            <div class="detail-box">
+                <small>Giriş Alt</small>
+                <strong id="dEntryLow">-</strong>
+            </div>
 
+            <div class="detail-box">
+                <small>Giriş Üst</small>
+                <strong id="dEntryHigh">-</strong>
+            </div>
 
-<div class="kategori guclu">
+            <div class="detail-box">
+                <small>Stop</small>
+                <strong id="dStop">-</strong>
+            </div>
 
-<h2>🔥 GÜÇLÜ AL</h2>
+            <div class="detail-box">
+                <small>Hedef 1</small>
+                <strong id="dTarget1">-</strong>
+            </div>
 
-<div id="gucluAl">
+            <div class="detail-box">
+                <small>Hedef 2</small>
+                <strong id="dTarget2">-</strong>
+            </div>
 
-<div class="bos">
+            <div class="detail-box">
+                <small>Risk / Getiri</small>
+                <strong id="dRiskReward">-</strong>
+            </div>
 
-Henüz tarama yapılmadı.
+            <div class="detail-box">
+                <small>Zirveden Uzaklık</small>
+                <strong id="dFromHigh">-</strong>
+            </div>
 
-</div>
+        </div>
 
-</div>
 
-</div>
+        <div class="reasons">
 
+            <h3>
+                🔒 Sıkışma Nedenleri
+            </h3>
 
-<div class="kategori al">
+            <div id="squeezeReasons">
+            </div>
 
-<h2>🟢 AL</h2>
+        </div>
 
-<div id="al">
 
-<div class="bos">
+        <div class="reasons">
 
-Henüz tarama yapılmadı.
+            <h3>
+                💥 Patlama Nedenleri
+            </h3>
 
-</div>
+            <div id="explosionReasons">
+            </div>
 
-</div>
+        </div>
 
-</div>
 
+        <div class="reasons">
 
-<div class="kategori takip">
+            <h3>
+                📊 Teknik Nedenler
+            </h3>
 
-<h2>👀 TAKİBE AL</h2>
+            <div id="technicalReasons">
+            </div>
 
-<div id="takip">
+        </div>
 
-<div class="bos">
 
-Henüz tarama yapılmadı.
+        <div class="controls">
 
-</div>
+            <button onclick="openTradingView()">
+                📈 TradingView
+            </button>
 
-</div>
+        </div>
 
-</div>
-
-
-</div>
-
-
-<div id="detay">
-
-
-<div class="detayKart">
-
-
-<button id="geriButonu">
-
-← Listeye Dön
-
-</button>
-
-
-<button id="tradingViewButonu">
-
-📊 TradingView'de Aç
-
-</button>
-
-
-<div class="detayUst">
-
-<div id="detayHisse"
-     class="detayHisse">
-</div>
-
-<div id="detayFiyat"
-     class="detayFiyat">
-</div>
-
-</div>
-
-
-<div id="detaySinyal"
-     class="sinyalBuyuk">
-</div>
-
-
-<div class="seviyeler">
-
-
-<div class="seviye giris">
-
-<span>📍 Giriş Bölgesi</span>
-
-<strong id="giris"></strong>
-
-</div>
-
-
-<div class="seviye stop">
-
-<span>🛑 Stop</span>
-
-<strong id="stop"></strong>
-
-</div>
-
-
-<div class="seviye hedef">
-
-<span>🎯 Hedef 1</span>
-
-<strong id="hedef1"></strong>
-
-</div>
-
-
-<div class="seviye hedef">
-
-<span>🎯 Hedef 2</span>
-
-<strong id="hedef2"></strong>
-
-</div>
-
-
-</div>
-
-
-<div class="metrikler">
-
-
-<div class="metrik">
-
-RSI
-
-<strong id="rsi"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-Hacim
-
-<strong id="hacim"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-Günlük
-
-<strong id="gunluk"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-EMA 9
-
-<strong id="ema9"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-EMA 21
-
-<strong id="ema21"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-EMA 50
-
-<strong id="ema50"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-EMA 200
-
-<strong id="ema200"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-20G Direnç
-
-<strong id="direnc"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-20G Destek
-
-<strong id="destek"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-52H Zirve
-
-<strong id="zirve"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-Zirveden
-
-<strong id="zirveden"></strong>
-
-</div>
-
-
-<div class="metrik">
-
-Risk / Getiri
-
-<strong id="riskGetiri"></strong>
-
-</div>
-
-
-</div>
-
-
-<div class="neden">
-
-<h3>🧠 Neden bu sinyal?</h3>
-
-<div id="nedenler"></div>
-
-</div>
-
-
-<div class="grafik">
-
-<h3>📈 Fiyat Grafiği</h3>
-
-<canvas id="grafikCanvas"></canvas>
-
-</div>
-
-
-</div>
-
-</div>
-
-
-<div id="gecmis"
-     class="gecmis">
-</div>
-
+    </div>
 
 </div>
 
 
 <script>
 
+    let allResults = [];
 
-document.addEventListener(
-"DOMContentLoaded",
-function () {
+    let currentFilter = "ALL";
 
+    let selectedStock = null;
 
-const taraButonu =
-document.getElementById(
-"taraButonu"
-);
 
+    /* =========================
+       SCAN
+    ========================= */
 
-const gecmisButonu =
-document.getElementById(
-"gecmisButonu"
-);
+    async function scanMarket() {
 
+        const btn =
+            document.getElementById(
+                "scanBtn"
+            );
 
-const geriButonu =
-document.getElementById(
-"geriButonu"
-);
+        const status =
+            document.getElementById(
+                "status"
+            );
 
+        const bar =
+            document.getElementById(
+                "progressBar"
+            );
 
-const tradingViewButonu =
-document.getElementById(
-"tradingViewButonu"
-);
+        btn.disabled = true;
 
+        status.innerHTML =
+            "⏳ BIST taranıyor...";
 
-const status =
-document.getElementById(
-"status"
-);
+        bar.style.width = "10%";
 
+        try {
 
-const hata =
-document.getElementById(
-"hata"
-);
+            const response =
+                await fetch(
+                    "/api/scan"
+                );
 
+            if (!response.ok) {
 
-const sayac =
-document.getElementById(
-"sayac"
-);
+                throw new Error(
+                    "Sunucu hatası"
+                );
 
+            }
 
-const kategoriler =
-document.querySelector(
-".kategoriler"
-);
+            const data =
+                await response.json();
 
+            if (!data.basarili) {
 
-const detay =
-document.getElementById(
-"detay"
-);
+                throw new Error(
+                    "Tarama başarısız"
+                );
 
+            }
 
-let tumSonuclar = [];
+            allResults =
+                data.sonuclar || [];
 
-let seciliHisse = null;
+            bar.style.width =
+                "100%";
 
+            status.innerHTML =
+                "✅ Tarama tamamlandı. " +
+                data.sonuc_sayisi +
+                " sonuç bulundu.";
 
-/* =========================
-   TARAMA
-========================= */
+            updateStats(
+                allResults,
+                data.toplam_hisse
+            );
 
+            renderResults();
 
-taraButonu.addEventListener(
-"click",
-async function () {
+        }
+        catch (error) {
 
+            console.error(error);
 
-taraButonu.disabled = true;
+            status.innerHTML =
+                "❌ Hata: " +
+                error.message;
 
-hata.innerText = "";
+            bar.style.width = "0%";
 
-sayac.innerText = "";
+        }
+        finally {
 
-status.innerText =
-"⏳ BIST hisseleri taranıyor...";
+            btn.disabled = false;
 
+        }
 
-let saniye = 0;
+    }
 
 
-const zamanlayici =
-setInterval(
-function () {
+    /* =========================
+       STATS
+    ========================= */
+
+    function updateStats(
+        results,
+        total
+    ) {
+
+        document.getElementById(
+            "totalStocks"
+        ).textContent =
+            total ?? results.length;
+
+        const strong =
+            results.filter(
+                x =>
+                    x.sinyal.includes(
+                        "GÜÇLÜ AL"
+                    )
+            ).length;
+
+        const squeeze =
+            results.filter(
+                x =>
+                    x.sikisma_puani >= 60
+            ).length;
+
+        document.getElementById(
+            "strongBuy"
+        ).textContent =
+            strong;
+
+        document.getElementById(
+            "squeezeCount"
+        ).textContent =
+            squeeze;
+
+        document.getElementById(
+            "resultCount"
+        ).textContent =
+            results.length;
+
+    }
+
+
+    /* =========================
+       FILTER
+    ========================= */
+
+    function setFilter(
+        filter,
+        element
+    ) {
+
+        currentFilter =
+            filter;
+
+        document
+            .querySelectorAll(
+                ".filter"
+            )
+            .forEach(
+                el =>
+                    el.classList.remove(
+                        "active"
+                    )
+            );
+
+        element.classList.add(
+            "active"
+        );
+
+        renderResults();
+
+    }
+
+
+    /* =========================
+       FILTER LOGIC
+    ========================= */
+
+    function filterResults() {
+
+        if (
+            currentFilter ===
+            "ALL"
+        ) {
+
+            return allResults;
+
+        }
+
+        if (
+            currentFilter ===
+            "GÜÇLÜ AL"
+        ) {
+
+            return allResults.filter(
+                x =>
+                    x.sinyal.includes(
+                        "GÜÇLÜ AL"
+                    )
+            );
+
+        }
+
+        if (
+            currentFilter ===
+            "AL"
+        ) {
+
+            return allResults.filter(
+                x =>
+                    x.sinyal.includes(
+                        "🟢 AL"
+                    )
+            );
+
+        }
+
+        if (
+            currentFilter ===
+            "TAKİBE AL"
+        ) {
+
+            return allResults.filter(
+                x =>
+                    x.sinyal.includes(
+                        "TAKİBE AL"
+                    )
+            );
+
+        }
+
+        if (
+            currentFilter ===
+            "SIKIŞMA"
+        ) {
+
+            return allResults.filter(
+                x =>
+                    x.sinyal.includes(
+                        "SIKIŞMA"
+                    )
+            );
+
+        }
+
+        if (
+            currentFilter ===
+            "PATLAMA"
+        ) {
+
+            return allResults.filter(
+                x =>
+                    x.patlama_puani >= 70
+            );
+
+        }
+
+        return allResults;
+
+    }
+
+
+    /* =========================
+       SIGNAL CLASS
+    ========================= */
+
+    function signalClass(
+        signal
+    ) {
+
+        if (
+            signal.includes(
+                "GÜÇLÜ AL"
+            )
+        )
+            return "strong-buy";
 
-saniye++;
+        if (
+            signal.includes(
+                "🔥 SIKIŞMA ÇÖZÜLÜYOR"
+            )
+        )
+            return "explode";
+
+        if (
+            signal.includes(
+                "🟢 AL"
+            )
+        )
+            return "buy";
 
-sayac.innerText =
-"Tarama devam ediyor... " +
-saniye +
-" saniye";
+        if (
+            signal.includes(
+                "TAKİBE AL"
+            )
+        )
+            return "watch";
 
-},
-1000
-);
+        if (
+            signal.includes(
+                "SIKIŞMA"
+            )
+        )
+            return "squeeze";
 
+        if (
+            signal.includes(
+                "AŞIRI"
+            )
+        )
+            return "danger";
 
-try {
+        return "wait";
 
+    }
 
-const controller =
-new AbortController();
 
+    /* =========================
+       RENDER
+    ========================= */
 
-const timeout =
-setTimeout(
-function () {
+    function renderResults() {
 
-controller.abort();
+        const container =
+            document.getElementById(
+                "results"
+            );
 
-},
-180000
-);
+        const results =
+            filterResults();
 
+        if (
+            !results.length
+        ) {
 
-const cevap =
-await fetch(
-"/api/scan?_=" +
-Date.now(),
-{
-method: "GET",
-cache: "no-store",
-signal:
-controller.signal
-}
-);
+            container.innerHTML =
+                `
+                <div class="empty">
+                    Bu kategoride sonuç yok.
+                </div>
+                `;
 
+            return;
 
-clearTimeout(timeout);
+        }
 
+        container.innerHTML =
+            results.map(
+                createCard
+            ).join("");
 
-if (!cevap.ok) {
+    }
 
 
-let hataMetni =
-"";
+    /* =========================
+       CARD
+    ========================= */
 
+    function createCard(
+        stock
+    ) {
 
-try {
+        const dailyClass =
+            stock.gunluk_degisim >= 0
+                ? "positive"
+                : "negative";
 
-hataMetni =
-await cevap.text();
+        return `
 
-}
+        <div class="card"
+             onclick="showDetail('${stock.hisse}')">
 
-catch (e) {
+            <div class="card-top">
 
-hataMetni =
-"Sunucudan hata mesajı alınamadı.";
+                <div>
 
-}
+                    <div class="stock">
+                        ${stock.hisse}
+                    </div>
 
+                    <div class="price">
+                        ${stock.fiyat} ₺
+                    </div>
 
-throw new Error(
-"Sunucu HTTP " +
-cevap.status +
-" hatası verdi.\n\n" +
-hataMetni
-);
+                </div>
 
+                <div>
 
-}
+                    <div class="signal
+                        ${signalClass(
+                            stock.sinyal
+                        )}">
 
+                        ${stock.sinyal}
 
-const veri =
-await cevap.json();
+                    </div>
 
+                </div>
 
-if (!veri.basarili) {
+            </div>
 
-throw new Error(
-veri.hata ||
-"Tarama başarısız."
-);
 
-}
+            <div class="metrics">
 
+                <div class="metric">
 
-tumSonuclar =
-veri.sonuclar || [];
+                    <div class="metric-title">
+                        RSI
+                    </div>
 
+                    <div class="metric-value">
+                        ${stock.rsi}
+                    </div>
 
-status.innerText =
-"✅ Tarama tamamlandı — " +
-tumSonuclar.length +
-" hisse analiz edildi.";
+                </div>
 
 
-sayac.innerText =
-"";
+                <div class="metric">
 
+                    <div class="metric-title">
+                        Hacim
+                    </div>
 
-kategorileriDoldur();
+                    <div class="metric-value">
+                        ${stock.hacim_orani}x
+                    </div>
 
+                </div>
 
-if (
-veri.hatalar &&
-veri.hatalar.length > 0
-) {
 
-sayac.innerText =
-"ℹ️ " +
-veri.hatalar.length +
-" hissede veri alınamadı.";
+                <div class="metric">
 
-}
+                    <div class="metric-title">
+                        Sıkışma
+                    </div>
 
+                    <div class="metric-value">
+                        ${stock.sikisma_puani}
+                    </div>
 
-}
+                </div>
 
-catch (err) {
 
+                <div class="metric">
 
-console.error(err);
+                    <div class="metric-title">
+                        Patlama
+                    </div>
 
+                    <div class="metric-value">
+                        ${stock.patlama_puani}
+                    </div>
 
-if (
-err.name === "AbortError"
-) {
+                </div>
 
-status.innerText =
-"❌ Tarama zaman aşımına uğradı.";
 
-hata.innerText =
-"Sunucu 180 saniye içinde cevap vermedi.\n" +
-"Render üzerinde çok fazla hisse tarandığında bu olabilir.";
+                <div class="metric">
 
-}
+                    <div class="metric-title">
+                        Günlük
+                    </div>
 
-else {
+                    <div class="
+                        metric-value
+                        ${dailyClass}">
 
-status.innerText =
-"❌ Tarama başarısız.";
+                        ${stock.gunluk_degisim}%
 
-hata.innerText =
-err.message;
+                    </div>
 
-}
+                </div>
 
-}
 
-finally {
+                <div class="metric">
 
+                    <div class="metric-title">
+                        Zirveden
+                    </div>
 
-clearInterval(
-zamanlayici
-);
+                    <div class="metric-value">
+                        ${stock.zirveden_uzaklik}%
+                    </div>
 
+                </div>
 
-taraButonu.disabled =
-false;
+            </div>
 
-}
+        </div>
 
-}
-);
+        `;
 
+    }
 
-/* =========================
-   KATEGORİLER
-========================= */
 
+    /* =========================
+       DETAIL
+    ========================= */
 
-function kategorileriDoldur() {
+    async function showDetail(
+        ticker
+    ) {
 
+        try {
 
-const gucluAl =
-document.getElementById(
-"gucluAl"
-);
+            const response =
+                await fetch(
+                    "/api/hisse/" +
+                    ticker
+                );
 
+            const data =
+                await response.json();
 
-const al =
-document.getElementById(
-"al"
-);
+            if (
+                !data.basarili
+            ) {
 
+                alert(
+                    data.hata ||
+                    "Hisse alınamadı."
+                );
 
-const takip =
-document.getElementById(
-"takip"
-);
+                return;
 
+            }
 
-gucluAl.innerHTML = "";
+            selectedStock =
+                data.hisse;
 
-al.innerHTML = "";
+            fillDetail(
+                selectedStock
+            );
 
-takip.innerHTML = "";
+            document.getElementById(
+                "detailModal"
+            ).style.display =
+                "block";
 
+        }
+        catch (error) {
 
-const gucluler =
-tumSonuclar.filter(
-function (x) {
+            alert(
+                "Hisse detayı alınamadı."
+            );
 
-return (
-x.sinyal &&
-x.sinyal.includes(
-"GÜÇLÜ AL"
-)
-);
+        }
 
-}
-);
+    }
 
 
-const allar =
-tumSonuclar.filter(
-function (x) {
+    /* =========================
+       FILL DETAIL
+    ========================= */
 
-return (
-x.sinyal &&
-x.sinyal.includes(
-"AL"
-) &&
-!x.sinyal.includes(
-"GÜÇLÜ"
-)
-);
+    function fillDetail(
+        x
+    ) {
 
-}
-);
+        document.getElementById(
+            "detailTitle"
+        ).textContent =
+            x.hisse +
+            " — " +
+            x.fiyat +
+            " ₺";
 
 
-const takipler =
-tumSonuclar.filter(
-function (x) {
+        document.getElementById(
+            "detailSignal"
+        ).innerHTML =
+            `
+            <span class="signal
+            ${signalClass(x.sinyal)}">
+                ${x.sinyal}
+            </span>
+            `;
 
-return (
-x.sinyal &&
-x.sinyal.includes(
-"TAKİBE"
-)
-);
 
-}
-);
+        setText(
+            "dPrice",
+            x.fiyat + " ₺"
+        );
 
+        setText(
+            "dRSI",
+            x.rsi
+        );
 
-kartlariGoster(
-gucluAl,
-gucluler
-);
+        setText(
+            "dVolume",
+            x.hacim_orani + "x"
+        );
 
+        setText(
+            "dDaily",
+            x.gunluk_degisim + "%"
+        );
 
-kartlariGoster(
-al,
-allar
-);
+        setText(
+            "dScore",
+            x.puan
+        );
 
+        setText(
+            "dSqueeze",
+            x.sikisma_puani
+        );
 
-kartlariGoster(
-takip,
-takipler
-);
+        setText(
+            "dExplosion",
+            x.patlama_puani
+        );
 
+        setText(
+            "dResistance",
+            x.direnc + " ₺"
+        );
 
-}
+        setText(
+            "dSupport",
+            x.destek + " ₺"
+        );
 
+        setText(
+            "dEntryLow",
+            x.giris_alt + " ₺"
+        );
 
-/* =========================
-   KARTLAR
-========================= */
+        setText(
+            "dEntryHigh",
+            x.giris_ust + " ₺"
+        );
 
+        setText(
+            "dStop",
+            x.stop + " ₺"
+        );
 
-function kartlariGoster(
-alan,
-hisseler
-) {
+        setText(
+            "dTarget1",
+            x.hedef1 + " ₺"
+        );
 
+        setText(
+            "dTarget2",
+            x.hedef2 + " ₺"
+        );
 
-if (
-hisseler.length === 0
-) {
+        setText(
+            "dRiskReward",
+            x.risk_getiri
+        );
 
-alan.innerHTML =
-"<div class='bos'>" +
-"Bu kategoride hisse yok." +
-"</div>";
+        setText(
+            "dFromHigh",
+            x.zirveden_uzaklik +
+            "%"
+        );
 
-return;
 
-}
+        renderReasons(
+            "squeezeReasons",
+            x.sikisma_nedenleri
+        );
 
+        renderReasons(
+            "explosionReasons",
+            x.patlama_nedenleri
+        );
 
-hisseler.forEach(
-function (hisse) {
+        renderReasons(
+            "technicalReasons",
+            x.nedenler
+        );
 
+    }
 
-const kart =
-document.createElement(
-"div"
-);
 
+    function setText(
+        id,
+        value
+    ) {
 
-kart.className =
-"hisseKart";
+        const el =
+            document.getElementById(
+                id
+            );
 
+        if (el)
+            el.textContent =
+                value ?? "-";
 
-kart.innerHTML = `
+    }
 
-<div class="hisseUst">
 
-<div class="hisseAdi">
-${hisse.hisse}
-</div>
+    /* =========================
+       REASONS
+    ========================= */
 
-<div class="hisseFiyat">
-${hisse.fiyat} ₺
-</div>
+    function renderReasons(
+        id,
+        reasons
+    ) {
 
-</div>
+        const el =
+            document.getElementById(
+                id
+            );
 
-<div class="sinyal">
-${hisse.sinyal}
-</div>
+        if (
+            !reasons ||
+            !reasons.length
+        ) {
 
-<div class="kucukBilgi">
+            el.innerHTML =
+                `
+                <div class="reason">
+                    Önemli neden bulunamadı.
+                </div>
+                `;
 
-RSI: ${hisse.rsi}
+            return;
 
-&nbsp; | &nbsp;
+        }
 
-Hacim:
-${hisse.hacim_orani}x
+        el.innerHTML =
+            reasons.map(
+                reason =>
+                    `
+                    <div class="reason">
+                        ✓ ${reason}
+                    </div>
+                    `
+            ).join("");
 
-&nbsp; | &nbsp;
+    }
 
-Günlük:
-${hisse.gunluk_degisim}%
 
-</div>
+    /* =========================
+       MODAL
+    ========================= */
 
-`;
+    function hideModal() {
 
+        document.getElementById(
+            "detailModal"
+        ).style.display =
+            "none";
 
-kart.addEventListener(
-"click",
-function () {
+    }
 
-detayAc(
-hisse.hisse
-);
 
-}
-);
+    function closeModal(
+        event
+    ) {
 
+        if (
+            event.target.id ===
+            "detailModal"
+        ) {
 
-alan.appendChild(
-kart
-);
+            hideModal();
 
+        }
 
-}
-);
+    }
 
 
-}
+    /* =========================
+       TRADINGVIEW
+    ========================= */
 
+    function openTradingView() {
 
-/* =========================
-   DETAY
-========================= */
+        if (
+            !selectedStock
+        )
+            return;
 
+        const ticker =
+            selectedStock.hisse;
 
-async function detayAc(
-hisseAdi
-) {
+        window.open(
+            "https://www.tradingview.com/symbols/" +
+            ticker +
+            "/",
+            "_blank"
+        );
 
+    }
 
-seciliHisse =
-hisseAdi;
 
+    /* =========================
+       HISTORY
+    ========================= */
 
-kategoriler.style.display =
-"none";
+    async function loadHistory() {
 
+        try {
 
-detay.style.display =
-"block";
+            const response =
+                await fetch(
+                    "/api/history"
+                );
 
+            const data =
+                await response.json();
 
-hata.innerText = "";
+            const section =
+                document.getElementById(
+                    "historySection"
+                );
 
+            const body =
+                document.getElementById(
+                    "historyBody"
+                );
 
-status.innerText =
-"⏳ " +
-hisseAdi +
-" detayları yükleniyor...";
+            section.style.display =
+                "block";
 
+            body.innerHTML =
+                data
+                .slice()
+                .reverse()
+                .map(
+                    x =>
+                    `
 
-try {
+                    <tr>
 
+                        <td>
+                            ${x.tarih || "-"}
+                        </td>
 
-const cevap =
-await fetch(
-"/api/hisse/" +
-encodeURIComponent(
-hisseAdi
-) +
-"?_=" +
-Date.now(),
-{
-cache:
-"no-store"
-}
-);
+                        <td>
+                            <strong>
+                                ${x.hisse || "-"}
+                            </strong>
+                        </td>
 
+                        <td>
+                            ${x.sinyal || "-"}
+                        </td>
 
-if (!cevap.ok) {
+                        <td>
+                            ${x.fiyat ?? "-"}
+                        </td>
 
-const metin =
-await cevap.text();
+                        <td>
+                            ${x.sikisma_puani ?? "-"}
+                        </td>
 
-throw new Error(
-"HTTP " +
-cevap.status +
-"\n" +
-metin
-);
+                        <td>
+                            ${x.patlama_puani ?? "-"}
+                        </td>
 
-}
+                    </tr>
 
+                    `
+                )
+                .join("");
 
-const veri =
-await cevap.json();
+        }
+        catch (error) {
 
+            alert(
+                "Geçmiş alınamadı."
+            );
 
-if (!veri.basarili) {
+        }
 
-throw new Error(
-veri.hata ||
-"Bilinmeyen hata"
-);
+    }
 
-}
 
+    /* =========================
+       SYSTEM INFO
+    ========================= */
 
-const h =
-veri.hisse;
+    async function loadInfo() {
 
+        try {
 
-detayDoldur(h);
+            const response =
+                await fetch(
+                    "/api/info"
+                );
 
+            const data =
+                await response.json();
 
-status.innerText =
-h.hisse +
-" detayları hazır.";
+            alert(
 
+                "Uygulama: " +
+                data.uygulama +
+                "\n\n" +
 
-}
+                "BIST hissesi: " +
+                data.hisse_sayisi +
+                "\n\n" +
 
-catch (err) {
+                "Sıkışma sistemi: " +
+                (
+                    data.sikisma_sistemi
+                    ? "Aktif"
+                    : "Kapalı"
+                ) +
+                "\n" +
 
+                "Patlama sistemi: " +
+                (
+                    data.patlama_sistemi
+                    ? "Aktif"
+                    : "Kapalı"
+                )
 
-console.error(err);
+            );
 
-hata.innerText =
-err.message;
+        }
+        catch (error) {
 
-status.innerText =
-"❌ Hisse detayları alınamadı.";
+            alert(
+                "Sistem bilgisi alınamadı."
+            );
 
-}
+        }
 
-}
+    }
 
 
-/* =========================
-   DETAY DOLDUR
-========================= */
+    /* =========================
+       ESC
+    ========================= */
 
+    document.addEventListener(
+        "keydown",
+        function(event) {
 
-function detayDoldur(h) {
+            if (
+                event.key ===
+                "Escape"
+            ) {
 
+                hideModal();
 
-document.getElementById(
-"detayHisse"
-).innerText =
-h.hisse || "-";
+            }
 
+        }
+    );
 
-document.getElementById(
-"detayFiyat"
-).innerText =
-(h.fiyat || "-") +
-" ₺";
-
-
-document.getElementById(
-"detaySinyal"
-).innerText =
-h.sinyal || "-";
-
-
-document.getElementById(
-"giris"
-).innerText =
-(h.giris_alt || "-") +
-" – " +
-(h.giris_ust || "-") +
-" ₺";
-
-
-document.getElementById(
-"stop"
-).innerText =
-(h.stop || "-") +
-" ₺";
-
-
-document.getElementById(
-"hedef1"
-).innerText =
-(h.hedef1 || "-") +
-" ₺";
-
-
-document.getElementById(
-"hedef2"
-).innerText =
-(h.hedef2 || "-") +
-" ₺";
-
-
-document.getElementById(
-"rsi"
-).innerText =
-h.rsi ?? "-";
-
-
-document.getElementById(
-"hacim"
-).innerText =
-(h.hacim_orani ?? "-") +
-"x";
-
-
-document.getElementById(
-"gunluk"
-).innerText =
-(h.gunluk_degisim ?? "-") +
-"%";
-
-
-document.getElementById(
-"ema9"
-).innerText =
-h.ema9 ?? "-";
-
-
-document.getElementById(
-"ema21"
-).innerText =
-h.ema21 ?? "-";
-
-
-document.getElementById(
-"ema50"
-).innerText =
-h.ema50 ?? "-";
-
-
-document.getElementById(
-"ema200"
-).innerText =
-h.ema200 ?? "-";
-
-
-document.getElementById(
-"direnc"
-).innerText =
-h.direnc ?? "-";
-
-
-document.getElementById(
-"destek"
-).innerText =
-h.destek ?? "-";
-
-
-document.getElementById(
-"zirve"
-).innerText =
-h.zirve52 ?? "-";
-
-
-document.getElementById(
-"zirveden"
-).innerText =
-(h.zirveden_uzaklik ?? "-") +
-"%";
-
-
-document.getElementById(
-"riskGetiri"
-).innerText =
-h.risk_getiri ?? "-";
-
-
-const nedenler =
-document.getElementById(
-"nedenler"
-);
-
-
-if (
-h.nedenler &&
-h.nedenler.length
-) {
-
-
-nedenler.innerHTML =
-h.nedenler
-.map(
-function (neden) {
-
-return (
-"• " +
-neden
-);
-
-}
-)
-.join("<br>");
-
-
-}
-
-else {
-
-
-nedenler.innerText =
-"Belirgin teknik teyit yok.";
-
-}
-
-
-grafikCiz(
-h.grafik
-);
-
-}
-
-
-/* =========================
-   GRAFİK
-========================= */
-
-
-function grafikCiz(
-veriler
-) {
-
-
-const canvas =
-document.getElementById(
-"grafikCanvas"
-);
-
-
-const ctx =
-canvas.getContext(
-"2d"
-);
-
-
-const rect =
-canvas.getBoundingClientRect();
-
-
-const dpr =
-window.devicePixelRatio ||
-1;
-
-
-canvas.width =
-rect.width * dpr;
-
-
-canvas.height =
-300 * dpr;
-
-
-ctx.setTransform(
-dpr,
-0,
-0,
-dpr,
-0,
-0
-);
-
-
-const width =
-rect.width;
-
-
-const height =
-300;
-
-
-ctx.clearRect(
-0,
-0,
-width,
-height
-);
-
-
-if (
-!veriler ||
-veriler.length < 2
-) {
-
-
-ctx.fillStyle =
-"#94a3b8";
-
-
-ctx.font =
-"14px Arial";
-
-
-ctx.fillText(
-"Grafik verisi yok.",
-20,
-30
-);
-
-
-return;
-
-}
-
-
-const fiyatlar =
-veriler.map(
-function (x) {
-
-return Number(
-x.fiyat
-);
-
-}
-);
-
-
-const min =
-Math.min(
-...fiyatlar
-);
-
-
-const max =
-Math.max(
-...fiyatlar
-);
-
-
-const aralik =
-max - min || 1;
-
-
-ctx.beginPath();
-
-
-veriler.forEach(
-function (nokta, i) {
-
-
-const x =
-10 +
-(
-i /
-(veriler.length - 1)
-) *
-(width - 20);
-
-
-const y =
-height -
-20 -
-(
-(
-Number(
-nokta.fiyat
-) -
-min
-) /
-aralik
-) *
-(
-height - 40
-);
-
-
-if (i === 0) {
-
-ctx.moveTo(
-x,
-y
-);
-
-}
-
-else {
-
-ctx.lineTo(
-x,
-y
-);
-
-}
-
-}
-);
-
-
-ctx.strokeStyle =
-"#60a5fa";
-
-
-ctx.lineWidth =
-2;
-
-
-ctx.stroke();
-
-
-ctx.fillStyle =
-"#94a3b8";
-
-
-ctx.font =
-"12px Arial";
-
-
-ctx.fillText(
-max.toFixed(2),
-10,
-15
-);
-
-
-ctx.fillText(
-min.toFixed(2),
-10,
-height - 5
-);
-
-}
-
-
-/* =========================
-   GERİ
-========================= */
-
-
-geriButonu.addEventListener(
-"click",
-function () {
-
-
-detay.style.display =
-"none";
-
-
-kategoriler.style.display =
-"grid";
-
-
-hata.innerText =
-"";
-
-
-status.innerText =
-"Tarama sonuçları görüntüleniyor.";
-
-}
-);
-
-
-/* =========================
-   TRADINGVIEW
-========================= */
-
-
-tradingViewButonu.addEventListener(
-"click",
-function () {
-
-
-if (!seciliHisse) {
-
-return;
-
-}
-
-
-const url =
-"https://www.tradingview.com/symbols/" +
-seciliHisse +
-"/";
-
-
-window.open(
-url,
-"_blank"
-);
-
-}
-);
-
-
-/* =========================
-   GEÇMİŞ
-========================= */
-
-
-gecmisButonu.addEventListener(
-"click",
-async function () {
-
-
-const alan =
-document.getElementById(
-"gecmis"
-);
-
-
-alan.style.display =
-"block";
-
-
-alan.innerHTML =
-"<div class='yukleniyor'>" +
-"⏳ Geçmiş yükleniyor..." +
-"</div>";
-
-
-try {
-
-
-const cevap =
-await fetch(
-"/api/history?_=" +
-Date.now(),
-{
-cache:
-"no-store"
-}
-);
-
-
-if (!cevap.ok) {
-
-throw new Error(
-"HTTP " +
-cevap.status
-);
-
-}
-
-
-const veriler =
-await cevap.json();
-
-
-if (
-!veriler ||
-!veriler.length
-) {
-
-
-alan.innerHTML =
-
-"<h3>📜 Sinyal Geçmişi</h3>" +
-
-"<p>Henüz kayıt yok.</p>";
-
-return;
-
-}
-
-
-let html = `
-
-<h3>
-📜 Sinyal Geçmişi
-</h3>
-
-<table>
-
-<tr>
-
-<th>Tarih</th>
-
-<th>Hisse</th>
-
-<th>Sinyal</th>
-
-<th>Fiyat</th>
-
-</tr>
-
-`;
-
-
-veriler
-.slice()
-.reverse()
-.forEach(
-function (x) {
-
-
-html += `
-
-<tr>
-
-<td>
-${x.tarih || "-"}
-</td>
-
-<td>
-${x.hisse || "-"}
-</td>
-
-<td>
-${x.sinyal || "-"}
-</td>
-
-<td>
-${x.fiyat || "-"} ₺
-</td>
-
-</tr>
-
-`;
-
-}
-);
-
-
-html +=
-"</table>";
-
-
-alan.innerHTML =
-html;
-
-
-}
-
-catch (err) {
-
-
-alan.innerHTML =
-"❌ Geçmiş alınamadı: " +
-err.message;
-
-}
-
-}
-);
-
-
-/* =========================
-   SAYFA YENİLENİNCE
-   API KONTROLÜ
-========================= */
-
-
-fetch(
-"/health?_=" +
-Date.now(),
-{
-cache:
-"no-store"
-}
-)
-.then(
-function (cevap) {
-
-if (cevap.ok) {
-
-status.innerText =
-"🟢 Sistem hazır. " +
-"Tarama başlatılabilir.";
-
-}
-
-else {
-
-status.innerText =
-"⚠️ Sunucu çalışıyor fakat /health hata verdi.";
-
-}
-
-}
-)
-.catch(
-function () {
-
-status.innerText =
-"⚠️ Sunucu bağlantısı kontrol edilemedi.";
-
-}
-);
-
-
-}
-);
 
 </script>
 
-
 </body>
-
 </html>
