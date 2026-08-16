@@ -13,6 +13,16 @@ app = Flask(__name__)
 HISTORY_FILE = "signal_history.json"
 
 # ============================================================
+# AYARLAR
+# ============================================================
+
+YF_PERIOD = "1y"
+YF_INTERVAL = "1d"
+
+# Tek tek veri çekmede timeout sorunlarını azaltmak için
+MAX_RETRY = 2
+
+# ============================================================
 # BIST HİSSE LİSTESİ
 # ============================================================
 
@@ -49,70 +59,64 @@ FALLBACK_HISSELER = [
 def bist_hisselerini_getir():
 
     try:
-        cevap = requests.get(
+
+        response = requests.get(
             BIST_LISTE_URL,
-            timeout=15
+            timeout=10
         )
 
-        if cevap.status_code == 200:
+        if response.status_code == 200:
 
             try:
+
                 df = pd.read_csv(
                     pd.io.common.StringIO(
-                        cevap.text
+                        response.text
                     )
                 )
 
-                kolonlar = [
-                    str(x).lower()
-                    for x in df.columns
-                ]
+                symbol_column = None
 
-                sembol_kolonu = None
+                for column in df.columns:
 
-                for i, kolon in enumerate(kolonlar):
+                    name = str(column).lower()
 
                     if (
-                        "symbol" in kolon
-                        or "sembol" in kolon
+                        "symbol" in name
+                        or
+                        "sembol" in name
                     ):
-                        sembol_kolonu = df.columns[i]
+
+                        symbol_column = column
                         break
 
-                if sembol_kolonu is not None:
+                if symbol_column is not None:
 
                     hisseler = []
 
-                    for sembol in df[
-                        sembol_kolonu
-                    ].dropna():
+                    for value in df[symbol_column].dropna():
 
-                        sembol = str(
-                            sembol
+                        symbol = str(
+                            value
                         ).strip().upper()
 
                         if (
-                            sembol
-                            and sembol.isalnum()
-                            and 2 <= len(sembol) <= 7
+                            symbol.isalnum()
+                            and
+                            2 <= len(symbol) <= 7
                         ):
 
-                            hisseler.append(
-                                sembol
-                            )
+                            hisseler.append(symbol)
 
                     hisseler = sorted(
-                        list(
-                            set(hisseler)
-                        )
+                        list(set(hisseler))
                     )
 
-                    if len(hisseler) > 100:
+                    if len(hisseler) >= 100:
 
                         print(
                             "BIST listesi alındı:",
-                            len(hisseler),
-                            "hisse"
+                            len(hisseler)
                         )
 
                         return [
@@ -123,19 +127,19 @@ def bist_hisselerini_getir():
             except Exception as e:
 
                 print(
-                    "Liste parse hatası:",
-                    e
+                    "Liste okuma hatası:",
+                    str(e)
                 )
 
     except Exception as e:
 
         print(
-            "BIST listesi alınamadı:",
-            e
+            "BIST listesi bağlantı hatası:",
+            str(e)
         )
 
     print(
-        "Fallback BIST listesi kullanılıyor:",
+        "Fallback liste kullanılıyor:",
         len(FALLBACK_HISSELER)
     )
 
@@ -149,7 +153,6 @@ def bist_hisselerini_getir():
     ]
 
 
-# Uygulama başlarken listeyi al
 BIST_HISSELERI = bist_hisselerini_getir()
 
 
@@ -181,8 +184,7 @@ def rsi_hesapla(
     ).mean()
 
     rs = (
-        avg_gain
-        /
+        avg_gain /
         avg_loss.replace(
             0,
             np.nan
@@ -201,23 +203,25 @@ def rsi_hesapla(
 
 def veri_al(ticker):
 
-    for deneme in range(3):
+    son_hata = "Veri alınamadı"
+
+    for deneme in range(MAX_RETRY):
 
         try:
 
             df = yf.download(
                 ticker,
-                period="1y",
-                interval="1d",
+                period=YF_PERIOD,
+                interval=YF_INTERVAL,
                 auto_adjust=False,
                 progress=False,
-                threads=False,
-                timeout=20
+                threads=False
             )
 
             if (
                 df is not None
-                and not df.empty
+                and
+                not df.empty
             ):
 
                 if isinstance(
@@ -225,29 +229,50 @@ def veri_al(ticker):
                     pd.MultiIndex
                 ):
 
-                    df.columns = (
-                        df.columns
-                        .get_level_values(0)
-                    )
+                    df.columns = [
+                        column[0]
+                        if isinstance(column, tuple)
+                        else column
+                        for column in df.columns
+                    ]
 
-                if (
-                    "Close" in df.columns
-                    and
-                    "Volume" in df.columns
+                gerekli = [
+                    "Close",
+                    "Volume"
+                ]
+
+                if all(
+                    column in df.columns
+                    for column in gerekli
                 ):
 
                     return df, None
 
+                son_hata = (
+                    "Close/Volume bulunamadı"
+                )
+
+            else:
+
+                son_hata = (
+                    "Boş veri"
+                )
+
         except Exception as e:
 
-            hata = str(e)
+            son_hata = str(e)
 
-        time.sleep(1)
+            print(
+                ticker,
+                "veri hatası:",
+                son_hata
+            )
 
-    return None, locals().get(
-        "hata",
-        "Veri alınamadı"
-    )
+        if deneme + 1 < MAX_RETRY:
+
+            time.sleep(0.5)
+
+    return None, son_hata
 
 
 # ============================================================
@@ -256,15 +281,15 @@ def veri_al(ticker):
 
 def analiz_et(ticker):
 
-    df, hata = veri_al(
-        ticker
-    )
-
-    if df is None:
-
-        return None, hata
-
     try:
+
+        df, hata = veri_al(
+            ticker
+        )
+
+        if df is None:
+
+            return None, hata
 
         close = pd.to_numeric(
             df["Close"],
@@ -289,7 +314,7 @@ def analiz_et(ticker):
         v = data["volume"]
 
         # ====================================================
-        # TEKNİK GÖSTERGELER
+        # EMA
         # ====================================================
 
         ema9 = c.ewm(
@@ -312,7 +337,15 @@ def analiz_et(ticker):
             adjust=False
         ).mean()
 
+        # ====================================================
+        # RSI
+        # ====================================================
+
         rsi = rsi_hesapla(c)
+
+        # ====================================================
+        # HACİM
+        # ====================================================
 
         volume20 = v.rolling(
             20
@@ -321,6 +354,10 @@ def analiz_et(ticker):
         volume5 = v.rolling(
             5
         ).mean()
+
+        # ====================================================
+        # DESTEK / DİRENÇ
+        # ====================================================
 
         resistance20 = (
             c.shift(1)
@@ -334,6 +371,10 @@ def analiz_et(ticker):
             .min()
         )
 
+        # ====================================================
+        # 52 HAFTA
+        # ====================================================
+
         high52 = c.rolling(
             252,
             min_periods=60
@@ -345,7 +386,7 @@ def analiz_et(ticker):
         ).min()
 
         # ====================================================
-        # FİYAT
+        # SON DEĞERLER
         # ====================================================
 
         fiyat = float(
@@ -362,13 +403,17 @@ def analiz_et(ticker):
                 onceki -
                 1
             ) * 100
-            if onceki
+            if onceki != 0
             else 0
         )
 
         rsi_son = float(
             rsi.iloc[-1]
         )
+
+        if np.isnan(rsi_son):
+
+            rsi_son = 50
 
         hacim_ortalama = float(
             volume20.iloc[-1]
@@ -382,18 +427,22 @@ def analiz_et(ticker):
             v.iloc[-1]
         )
 
+        if (
+            hacim_ortalama <= 0
+            or
+            np.isnan(hacim_ortalama)
+        ):
+
+            hacim_ortalama = 1
+
         hacim_orani = (
             son_hacim /
             hacim_ortalama
-            if hacim_ortalama > 0
-            else 0
         )
 
         kisa_hacim_orani = (
             hacim5 /
             hacim_ortalama
-            if hacim_ortalama > 0
-            else 0
         )
 
         e9 = float(
@@ -428,6 +477,18 @@ def analiz_et(ticker):
             low52.iloc[-1]
         )
 
+        if np.isnan(direnç):
+            direnç = fiyat
+
+        if np.isnan(destek):
+            destek = fiyat
+
+        if np.isnan(zirve):
+            zirve = fiyat
+
+        if np.isnan(dip):
+            dip = fiyat
+
         zirveden_uzaklik = (
             (
                 fiyat /
@@ -439,7 +500,7 @@ def analiz_et(ticker):
         )
 
         # ====================================================
-        # SIKIŞMA ANALİZİ
+        # SIKIŞMA
         # ====================================================
 
         getiriler = c.pct_change()
@@ -458,19 +519,12 @@ def analiz_et(ticker):
             .iloc[-1]
         )
 
-        if pd.isna(
-            volatilite20
-        ):
-
+        if pd.isna(volatilite20):
             volatilite20 = 0.03
 
-        if pd.isna(
-            volatilite60
-        ):
-
+        if pd.isna(volatilite60):
             volatilite60 = 0.03
 
-        # Son 20 günlük fiyat aralığı
         son20_yuksek = float(
             c.tail(20).max()
         )
@@ -490,7 +544,6 @@ def analiz_et(ticker):
             else 1
         )
 
-        # Bollinger benzeri bant genişliği
         orta20 = c.rolling(
             20
         ).mean()
@@ -509,25 +562,36 @@ def analiz_et(ticker):
             2 * std20
         )
 
-        bant_genisligi = (
-            (
-                ust_band.iloc[-1] -
-                alt_band.iloc[-1]
-            )
-            /
+        orta_son = float(
             orta20.iloc[-1]
-            if orta20.iloc[-1] > 0
-            else 1
         )
 
-        # ====================================================
-        # SIKIŞMA PUANI 0-100
-        # ====================================================
+        ust_son = float(
+            ust_band.iloc[-1]
+        )
+
+        alt_son = float(
+            alt_band.iloc[-1]
+        )
+
+        if orta_son > 0:
+
+            bant_genisligi = (
+                (
+                    ust_son -
+                    alt_son
+                )
+                /
+                orta_son
+            )
+
+        else:
+
+            bant_genisligi = 1
 
         sikisma_puan = 0
         sikisma_nedenleri = []
 
-        # Düşük volatilite
         if volatilite20 < 0.018:
 
             sikisma_puan += 25
@@ -548,7 +612,6 @@ def analiz_et(ticker):
 
             sikisma_puan += 10
 
-        # Dar fiyat aralığı
         if fiyat_aralik < 0.08:
 
             sikisma_puan += 25
@@ -565,7 +628,6 @@ def analiz_et(ticker):
 
             sikisma_puan += 10
 
-        # Bollinger sıkışması
         if bant_genisligi < 0.10:
 
             sikisma_puan += 25
@@ -582,20 +644,18 @@ def analiz_et(ticker):
 
             sikisma_puan += 10
 
-        # Hacim düşüklüğü + son hareket
         if (
             kisa_hacim_orani < 0.80
             and
-            hacim_orani < 1.0
+            hacim_orani < 1
         ):
 
             sikisma_puan += 15
 
             sikisma_nedenleri.append(
-                "Hacim kuruyor"
+                "Hacim düşük"
             )
 
-        # Dirence yakınlık
         direnç_mesafe = (
             (
                 direnç -
@@ -608,9 +668,7 @@ def analiz_et(ticker):
             else 999
         )
 
-        if (
-            0 <= direnç_mesafe <= 5
-        ):
+        if 0 <= direnç_mesafe <= 5:
 
             sikisma_puan += 10
 
@@ -618,23 +676,19 @@ def analiz_et(ticker):
                 "Dirence çok yakın"
             )
 
-        # Puanı sınırla
         sikisma_puan = min(
             100,
             max(
                 0,
-                int(
-                    sikisma_puan
-                )
+                int(sikisma_puan)
             )
         )
 
         # ====================================================
-        # PATLAMA / KIRILIM HAZIRLIK PUANI
+        # PATLAMA
         # ====================================================
 
         patlama_puan = 0
-
         patlama_nedenleri = []
 
         if sikisma_puan >= 70:
@@ -649,7 +703,6 @@ def analiz_et(ticker):
 
             patlama_puan += 10
 
-        # RSI nötr-pozitif
         if 45 <= rsi_son <= 65:
 
             patlama_puan += 15
@@ -658,49 +711,41 @@ def analiz_et(ticker):
                 "RSI aşırı alımda değil"
             )
 
-        # EMA9 / EMA21
         if e9 > e21:
 
             patlama_puan += 15
 
             patlama_nedenleri.append(
-                "Kısa trend yukarı dönüyor"
+                "Kısa trend yukarı"
             )
 
-        # Fiyat EMA21 üzerinde
         if fiyat > e21:
 
             patlama_puan += 10
 
-        # Dirence yakınlık
         if 0 <= direnç_mesafe <= 5:
 
             patlama_puan += 20
 
             patlama_nedenleri.append(
-                "Kırılmaya yakın direnç"
+                "Dirence yakın"
             )
 
-        # Hacim kıpırdanması
-        if (
-            kisa_hacim_orani >= 1.15
-        ):
+        if kisa_hacim_orani >= 1.15:
 
             patlama_puan += 10
 
             patlama_nedenleri.append(
-                "Hacimde kıpırdanma başladı"
+                "Hacimde hareketlenme"
             )
 
         patlama_puan = min(
             100,
-            int(
-                patlama_puan
-            )
+            int(patlama_puan)
         )
 
         # ====================================================
-        # NORMAL TEKNİK PUAN
+        # NORMAL PUAN
         # ====================================================
 
         puan = 0
@@ -711,7 +756,7 @@ def analiz_et(ticker):
             puan += 30
 
             nedenler.append(
-                "Hacim güçlü şekilde arttı"
+                "Hacim güçlü arttı"
             )
 
         elif hacim_orani >= 1.5:
@@ -786,16 +831,12 @@ def analiz_et(ticker):
                 "20 günlük direnç kırıldı"
             )
 
-        if (
-            -65 <=
-            zirveden_uzaklik <=
-            -45
-        ):
+        if -65 <= zirveden_uzaklik <= -45:
 
             puan += 8
 
             nedenler.append(
-                "52 haftalık zirveden uzak"
+                "Zirveden belirgin uzak"
             )
 
         if rsi_son > 72:
@@ -805,6 +846,16 @@ def analiz_et(ticker):
             nedenler.append(
                 "RSI aşırı yüksek"
             )
+
+        puan = int(
+            max(
+                0,
+                min(
+                    100,
+                    puan
+                )
+            )
+        )
 
         # ====================================================
         # SİNYAL
@@ -844,9 +895,7 @@ def analiz_et(ticker):
 
             sinyal = "🟢 AL"
 
-        elif (
-            sikisma_puan >= 60
-        ):
+        elif sikisma_puan >= 60:
 
             sinyal = "🔒 SIKIŞMA"
 
@@ -862,21 +911,16 @@ def analiz_et(ticker):
         # GİRİŞ / STOP / HEDEF
         # ====================================================
 
-        gunluk_degisimler = (
+        gunluk_vol = (
             c.pct_change()
             .rolling(14)
             .std()
+            .iloc[-1]
         )
 
-        volatilite = float(
-            gunluk_degisimler.iloc[-1]
-        )
+        if pd.isna(gunluk_vol):
 
-        if np.isnan(
-            volatilite
-        ):
-
-            volatilite = 0.02
+            gunluk_vol = 0.02
 
         giris_alt = max(
             destek,
@@ -888,18 +932,17 @@ def analiz_et(ticker):
             fiyat
         )
 
+        stop_yuzde = max(
+            0.025,
+            min(
+                gunluk_vol * 1.5,
+                0.07
+            )
+        )
+
         stop = (
             giris_alt *
-            (
-                1 -
-                max(
-                    0.025,
-                    min(
-                        volatilite * 1.5,
-                        0.07
-                    )
-                )
-            )
+            (1 - stop_yuzde)
         )
 
         hedef1 = max(
@@ -915,23 +958,16 @@ def analiz_et(ticker):
         if direnç <= fiyat:
 
             hedef1 = fiyat * 1.04
-
             hedef2 = fiyat * 1.08
 
         risk = fiyat - stop
-
         getiri1 = hedef1 - fiyat
 
-        if risk > 0:
-
-            risk_getiri = (
-                getiri1 /
-                risk
-            )
-
-        else:
-
-            risk_getiri = 0
+        risk_getiri = (
+            getiri1 / risk
+            if risk > 0
+            else 0
+        )
 
         # ====================================================
         # GRAFİK
@@ -939,20 +975,14 @@ def analiz_et(ticker):
 
         grafik = []
 
-        son_veriler = data.tail(
+        for tarih, row in data.tail(
             120
-        )
-
-        for tarih, row in (
-            son_veriler.iterrows()
-        ):
+        ).iterrows():
 
             try:
 
-                tarih_text = (
-                    tarih.strftime(
-                        "%Y-%m-%d"
-                    )
+                tarih_text = tarih.strftime(
+                    "%Y-%m-%d"
                 )
 
             except:
@@ -994,15 +1024,7 @@ def analiz_et(ticker):
                 sinyal,
 
             "puan":
-                int(
-                    max(
-                        0,
-                        min(
-                            100,
-                            puan
-                        )
-                    )
-                ),
+                puan,
 
             "rsi":
                 round(
@@ -1029,90 +1051,47 @@ def analiz_et(ticker):
                 ),
 
             "ema9":
-                round(
-                    e9,
-                    2
-                ),
+                round(e9, 2),
 
             "ema21":
-                round(
-                    e21,
-                    2
-                ),
+                round(e21, 2),
 
             "ema50":
-                round(
-                    e50,
-                    2
-                ),
+                round(e50, 2),
 
             "ema200":
-                round(
-                    e200,
-                    2
-                ),
+                round(e200, 2),
 
             "direnc":
-                round(
-                    direnç,
-                    2
-                ),
+                round(direnç, 2),
 
             "destek":
-                round(
-                    destek,
-                    2
-                ),
+                round(destek, 2),
 
             "zirve52":
-                round(
-                    zirve,
-                    2
-                ),
+                round(zirve, 2),
 
             "dip52":
-                round(
-                    dip,
-                    2
-                ),
+                round(dip, 2),
 
             "giris_alt":
-                round(
-                    giris_alt,
-                    2
-                ),
+                round(giris_alt, 2),
 
             "giris_ust":
-                round(
-                    giris_ust,
-                    2
-                ),
+                round(giris_ust, 2),
 
             "stop":
-                round(
-                    stop,
-                    2
-                ),
+                round(stop, 2),
 
             "hedef1":
-                round(
-                    hedef1,
-                    2
-                ),
+                round(hedef1, 2),
 
             "hedef2":
-                round(
-                    hedef2,
-                    2
-                ),
+                round(hedef2, 2),
 
             "risk_getiri":
-                round(
-                    risk_getiri,
-                    2
-                ),
+                round(risk_getiri, 2),
 
-            # YENİ SIKIŞMA VERİLERİ
             "sikisma_puani":
                 sikisma_puan,
 
@@ -1165,6 +1144,12 @@ def analiz_et(ticker):
 
     except Exception as e:
 
+        print(
+            ticker,
+            "ANALİZ HATASI:",
+            str(e)
+        )
+
         return None, str(e)
 
 
@@ -1182,28 +1167,46 @@ def gecmis_oku():
             encoding="utf-8"
         ) as f:
 
-            return json.load(f)
+            data = json.load(f)
 
-    except:
+            if isinstance(
+                data,
+                list
+            ):
 
-        return []
+                return data
+
+    except Exception:
+
+        pass
+
+    return []
 
 
 def gecmis_kaydet(
     veriler
 ):
 
-    with open(
-        HISTORY_FILE,
-        "w",
-        encoding="utf-8"
-    ) as f:
+    try:
 
-        json.dump(
-            veriler[-1000:],
-            f,
-            ensure_ascii=False,
-            indent=2
+        with open(
+            HISTORY_FILE,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            json.dump(
+                veriler[-1000:],
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
+
+    except Exception as e:
+
+        print(
+            "Geçmiş kayıt hatası:",
+            str(e)
         )
 
 
@@ -1223,9 +1226,7 @@ def ana_sayfa():
 # TARAMA
 # ============================================================
 
-@app.route(
-    "/api/scan"
-)
+@app.route("/api/scan")
 def tara():
 
     sonuclar = []
@@ -1236,9 +1237,20 @@ def tara():
     )
 
     print(
-        "BIST taraması başladı:",
-        toplam,
-        "hisse"
+        "================================"
+    )
+
+    print(
+        "BIST TARAMASI BAŞLADI"
+    )
+
+    print(
+        "Toplam:",
+        toplam
+    )
+
+    print(
+        "================================"
     )
 
     for sira, ticker in enumerate(
@@ -1252,7 +1264,7 @@ def tara():
                 ticker
             )
 
-            if sonuc:
+            if sonuc is not None:
 
                 sonuclar.append(
                     sonuc
@@ -1274,11 +1286,20 @@ def tara():
                 })
 
             print(
-                f"{sira}/{toplam}:",
-                ticker
+                f"[{sira}/{toplam}]",
+                ticker,
+                "OK"
+                if sonuc
+                else "HATA"
             )
 
         except Exception as e:
+
+            print(
+                ticker,
+                "GENEL HATA:",
+                str(e)
+            )
 
             hatalar.append({
 
@@ -1293,8 +1314,11 @@ def tara():
 
             })
 
+        # Sunucuyu gereksiz yere sıkıştırmamak için
+        time.sleep(0.05)
+
     # ========================================================
-    # SIKIŞMA + PATLAMA ÖNCELİĞİ
+    # SIRALAMA
     # ========================================================
 
     sonuclar.sort(
@@ -1314,6 +1338,10 @@ def tara():
         ),
         reverse=True
     )
+
+    # ========================================================
+    # GEÇMİŞ
+    # ========================================================
 
     tarih = datetime.now().strftime(
         "%Y-%m-%d %H:%M"
@@ -1356,11 +1384,25 @@ def tara():
     )
 
     print(
-        "Tarama tamamlandı:",
-        len(sonuclar),
-        "başarılı /",
-        len(hatalar),
-        "hatalı"
+        "================================"
+    )
+
+    print(
+        "TARAMA TAMAMLANDI"
+    )
+
+    print(
+        "Başarılı:",
+        len(sonuclar)
+    )
+
+    print(
+        "Hatalı:",
+        len(hatalar)
+    )
+
+    print(
+        "================================"
     )
 
     return jsonify({
@@ -1394,7 +1436,7 @@ def hisse_detay(
     ticker
 ):
 
-    ticker = ticker.upper()
+    ticker = ticker.upper().strip()
 
     if not ticker.endswith(
         ".IS"
@@ -1444,7 +1486,7 @@ def sinyal_gecmisi():
 
 
 # ============================================================
-# BIST LİSTE BİLGİSİ
+# SİSTEM BİLGİSİ
 # ============================================================
 
 @app.route(
@@ -1458,7 +1500,7 @@ def sistem_bilgisi():
             "ok",
 
         "uygulama":
-            "BIST Hisse Avcısı V7",
+            "BIST Hisse Avcısı V8",
 
         "hisse_sayisi":
             len(
@@ -1489,7 +1531,7 @@ def health():
             "ok",
 
         "uygulama":
-            "BIST Hisse Avcısı V7",
+            "BIST Hisse Avcısı V8",
 
         "hisse_sayisi":
             len(
