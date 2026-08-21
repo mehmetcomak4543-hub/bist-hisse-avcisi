@@ -1,1634 +1,391 @@
-from flask import Flask, render_template, jsonify
-import yfinance as yf
+
+from flask import Flask, jsonify, render_template
 import pandas as pd
 import numpy as np
-import os
-import json
-import threading
+import yfinance as yf
+import requests
+from io import StringIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import threading, time, json, os, re
 
 app = Flask(__name__)
 
-HISTORY_FILE = "signal_history.json"
+SCAN_COUNT = 500
+PERIOD = "1y"
+INTERVAL = "1d"
+CACHE_SECONDS = 300
 
-# ============================================================
-# BIST HİSSE LİSTESİ
-# ============================================================
-
-FALLBACK_HISSELER = """
-AEFES AGHOL AKBNK AKSA AKSEN ALARK ARCLK ASELS ASTOR BIMAS BRSAN DOAS
-ECILC EKGYO ENKAI EREGL FROTO GARAN GUBRF HEKTS ISCTR KCHOL KONTR KOZAA
-KOZAL MGROS OYAKC PETKM PGSUS SAHOL SASA SISE TCELL THYAO TKFEN TOASO
-TUPRS YKBNK KAREL JANTS TARKM YEOTK MIATK REEDR ALFAS CWENE GESAN ODAS
-ZOREN ENJSA SMRTG GWIND CANTE KONKA LINK LIDFA LYDHO ASGYO AGYO AKGRT
-AKFGY ALGYO AVHOL BAGFS BERA BINHO BINBT BNTAS BRYAT BUCIM CIMSA CLEBI
-DOHOL DGNMO EGEEN ENERY FMIZP GLYHO HALKB ICBCT INDES IPEKE ISDMR ISFIN
-ISGSY ISMEN IZMDC KARSN KCAER KERVT KLGYO KMPUR LOGO MAVI MEPET MPARK
-NTHOL NUHCM OBASE ORGE OTKAR OYAYO PENTA POLHO QUAGR RALYH RYSAS SARKY
-SELEC SKBNK SMART SOKM TATEN TATGD TAVHL TEZOL TKNSA TRCAS TRGYO TSKB
-TTKOM TTRAK TUKAS ULKER ULUUN VAKBN VAKKO VESBE VESTL YATAS YIGIT YYLGD
-""".split()
-
-BIST_HISSELERI = sorted(
-    set(
-        hisse + ".IS"
-        for hisse in FALLBACK_HISSELER
-    )
-)
-
-
-# ============================================================
-# TARMA DURUMU
-# ============================================================
-
-tarama = {
+state = {
     "running": False,
     "progress": 0,
-    "total": len(BIST_HISSELERI),
+    "total": SCAN_COUNT,
     "results": [],
-    "errors": [],
-    "message": "Hazır",
-    "started": None,
-    "finished": None
+    "updated": None,
+    "error": None
 }
+lock = threading.Lock()
+cache = {}
 
-tarama_lock = threading.Lock()
+FALLBACK_TICKER_URL = (
+    "https://raw.githubusercontent.com/ahmeterenodaci/"
+    "Istanbul-Stock-Exchange--BIST--including-symbols-and-logos/main/bist.csv"
+)
+BIST500_PAGE = "https://www.halkaarztakvimi.com.tr/bist-500-endeks-xu500/"
 
+def clean_symbol(x):
+    x = str(x).strip().upper()
+    x = x.replace(".IS", "")
+    x = re.sub(r"[^A-Z0-9]", "", x)
+    return x
 
-# ============================================================
-# RSI
-# ============================================================
-
-def rsi_hesapla(series, period=14):
-
-    delta = series.diff()
-
-    gain = delta.clip(lower=0)
-
-    loss = -delta.clip(upper=0)
-
-    avg_gain = gain.rolling(period).mean()
-
-    avg_loss = loss.rolling(period).mean()
-
-    rs = (
-        avg_gain /
-        avg_loss.replace(0, np.nan)
-    )
-
-    return 100 - (
-        100 /
-        (1 + rs)
-    )
-
-
-# ============================================================
-# DATA TEMİZLE
-# ============================================================
-
-def dataframe_temizle(df):
-
-    if df is None or df.empty:
-        return None
-
-    if isinstance(
-        df.columns,
-        pd.MultiIndex
-    ):
-
-        df.columns = (
-            df.columns
-            .get_level_values(0)
-        )
-
-    if (
-        "Close" not in df.columns
-        or
-        "Volume" not in df.columns
-    ):
-
-        return None
-
-    data = pd.DataFrame({
-
-        "close":
-            pd.to_numeric(
-                df["Close"],
-                errors="coerce"
-            ),
-
-        "volume":
-            pd.to_numeric(
-                df["Volume"],
-                errors="coerce"
-            )
-
-    }).dropna()
-
-    if len(data) < 60:
-        return None
-
-    return data
-
-
-# ============================================================
-# ANALİZ
-# ============================================================
-
-def analiz_et(df, ticker):
-
-    data = dataframe_temizle(df)
-
-    if data is None:
-        return None
-
+def load_bist500():
+    # 1) Try a page that publishes the current BIST 500 membership.
     try:
-
-        c = data["close"]
-
-        v = data["volume"]
-
-        # ----------------------------------------------------
-        # EMA
-        # ----------------------------------------------------
-
-        ema9 = c.ewm(
-            span=9,
-            adjust=False
-        ).mean()
-
-        ema21 = c.ewm(
-            span=21,
-            adjust=False
-        ).mean()
-
-        ema50 = c.ewm(
-            span=50,
-            adjust=False
-        ).mean()
-
-        ema200 = c.ewm(
-            span=200,
-            adjust=False
-        ).mean()
-
-        # ----------------------------------------------------
-        # RSI
-        # ----------------------------------------------------
-
-        rsi = rsi_hesapla(c)
-
-        # ----------------------------------------------------
-        # HACİM
-        # ----------------------------------------------------
-
-        volume20 = v.rolling(20).mean()
-
-        volume5 = v.rolling(5).mean()
-
-        # ----------------------------------------------------
-        # DESTEK / DİRENÇ
-        # ----------------------------------------------------
-
-        resistance20 = (
-            c.shift(1)
-            .rolling(20)
-            .max()
-        )
-
-        support20 = (
-            c.shift(1)
-            .rolling(20)
-            .min()
-        )
-
-        # ----------------------------------------------------
-        # 52 HAFTA
-        # ----------------------------------------------------
-
-        high52 = (
-            c.rolling(
-                252,
-                min_periods=60
-            ).max()
-        )
-
-        low52 = (
-            c.rolling(
-                252,
-                min_periods=60
-            ).min()
-        )
-
-        # ----------------------------------------------------
-        # FİYAT
-        # ----------------------------------------------------
-
-        fiyat = float(c.iloc[-1])
-
-        onceki = float(c.iloc[-2])
-
-        gunluk_degisim = (
-            (
-                fiyat / onceki - 1
-            ) * 100
-            if onceki != 0
-            else 0
-        )
-
-        rsi_son = float(
-            rsi.iloc[-1]
-        )
-
-        if np.isnan(rsi_son):
-            rsi_son = 50
-
-        hacim_ortalama = float(
-            volume20.iloc[-1]
-        )
-
-        if (
-            np.isnan(
-                hacim_ortalama
-            )
-            or
-            hacim_ortalama <= 0
-        ):
-
-            hacim_ortalama = 1
-
-        hacim5 = float(
-            volume5.iloc[-1]
-        )
-
-        if np.isnan(hacim5):
-            hacim5 = hacim_ortalama
-
-        son_hacim = float(
-            v.iloc[-1]
-        )
-
-        hacim_orani = (
-            son_hacim /
-            hacim_ortalama
-        )
-
-        kisa_hacim_orani = (
-            hacim5 /
-            hacim_ortalama
-        )
-
-        e9 = float(
-            ema9.iloc[-1]
-        )
-
-        e21 = float(
-            ema21.iloc[-1]
-        )
-
-        e50 = float(
-            ema50.iloc[-1]
-        )
-
-        e200 = float(
-            ema200.iloc[-1]
-        )
-
-        direnç = float(
-            resistance20.iloc[-1]
-        )
-
-        destek = float(
-            support20.iloc[-1]
-        )
-
-        if np.isnan(direnç):
-            direnç = fiyat
-
-        if np.isnan(destek):
-            destek = fiyat
-
-        zirve = float(
-            high52.iloc[-1]
-        )
-
-        dip = float(
-            low52.iloc[-1]
-        )
-
-        if np.isnan(zirve):
-            zirve = fiyat
-
-        if np.isnan(dip):
-            dip = fiyat
-
-        zirveden_uzaklik = (
-            (
-                fiyat / zirve - 1
-            ) * 100
-            if zirve > 0
-            else 0
-        )
-
-        # ====================================================
-        # SIKIŞMA
-        # ====================================================
-
-        getiriler = c.pct_change()
-
-        volatilite20 = (
-            getiriler
-            .rolling(20)
-            .std()
-            .iloc[-1]
-        )
-
-        if pd.isna(volatilite20):
-            volatilite20 = 0.03
-
-        son20_yuksek = float(
-            c.tail(20).max()
-        )
-
-        son20_dusuk = float(
-            c.tail(20).min()
-        )
-
-        fiyat_aralik = (
-            (
-                son20_yuksek -
-                son20_dusuk
-            )
-            / fiyat
-            if fiyat > 0
-            else 1
-        )
-
-        orta20 = c.rolling(20).mean()
-
-        std20 = c.rolling(20).std()
-
-        ust_band = (
-            orta20 +
-            2 * std20
-        )
-
-        alt_band = (
-            orta20 -
-            2 * std20
-        )
-
-        if (
-            orta20.iloc[-1] > 0
-        ):
-
-            bant_genisligi = (
-                (
-                    ust_band.iloc[-1] -
-                    alt_band.iloc[-1]
-                )
-                /
-                orta20.iloc[-1]
-            )
-
-        else:
-
-            bant_genisligi = 1
-
-        # ----------------------------------------------------
-        # SIKIŞMA PUANI
-        # ----------------------------------------------------
-
-        sikisma_puani = 0
-
-        sikisma_nedenleri = []
-
-        if volatilite20 < 0.018:
-
-            sikisma_puani += 25
-
-            sikisma_nedenleri.append(
-                "20 günlük volatilite çok düşük"
-            )
-
-        elif volatilite20 < 0.025:
-
-            sikisma_puani += 18
-
-            sikisma_nedenleri.append(
-                "Volatilite düşük"
-            )
-
-        elif volatilite20 < 0.035:
-
-            sikisma_puani += 10
-
-        if fiyat_aralik < 0.08:
-
-            sikisma_puani += 25
-
-            sikisma_nedenleri.append(
-                "Fiyat son 20 günde dar bantta"
-            )
-
-        elif fiyat_aralik < 0.12:
-
-            sikisma_puani += 18
-
-        elif fiyat_aralik < 0.16:
-
-            sikisma_puani += 10
-
-        if bant_genisligi < 0.10:
-
-            sikisma_puani += 25
-
-            sikisma_nedenleri.append(
-                "Bollinger bantları sıkıştı"
-            )
-
-        elif bant_genisligi < 0.15:
-
-            sikisma_puani += 18
-
-        elif bant_genisligi < 0.20:
-
-            sikisma_puani += 10
-
-        if (
-            kisa_hacim_orani < 0.80
-            and
-            hacim_orani < 1
-        ):
-
-            sikisma_puani += 15
-
-            sikisma_nedenleri.append(
-                "Hacim kuruyor"
-            )
-
-        direnç_mesafe = (
-            (
-                direnç -
-                fiyat
-            )
-            /
-            fiyat *
-            100
-            if fiyat > 0
-            else 999
-        )
-
-        if (
-            0 <=
-            direnç_mesafe <= 5
-        ):
-
-            sikisma_puani += 10
-
-            sikisma_nedenleri.append(
-                "Dirence çok yakın"
-            )
-
-        sikisma_puani = min(
-            100,
-            max(
-                0,
-                int(
-                    sikisma_puani
-                )
-            )
-        )
-
-        # ====================================================
-        # PATLAMA
-        # ====================================================
-
-        if sikisma_puani >= 70:
-
-            patlama_puani = 30
-
-        elif sikisma_puani >= 55:
-
-            patlama_puani = 20
-
-        elif sikisma_puani >= 40:
-
-            patlama_puani = 10
-
-        else:
-
-            patlama_puani = 0
-
-        patlama_nedenleri = []
-
-        if 45 <= rsi_son <= 65:
-
-            patlama_puani += 15
-
-            patlama_nedenleri.append(
-                "RSI aşırı alımda değil"
-            )
-
-        if e9 > e21:
-
-            patlama_puani += 15
-
-            patlama_nedenleri.append(
-                "Kısa trend yukarı dönüyor"
-            )
-
-        if fiyat > e21:
-
-            patlama_puani += 10
-
-        if (
-            0 <=
-            direnç_mesafe <= 5
-        ):
-
-            patlama_puani += 20
-
-            patlama_nedenleri.append(
-                "Kırılmaya yakın direnç"
-            )
-
-        if kisa_hacim_orani >= 1.15:
-
-            patlama_puani += 10
-
-            patlama_nedenleri.append(
-                "Hacimde kıpırdanma başladı"
-            )
-
-        patlama_puani = min(
-            100,
-            int(
-                patlama_puani
-            )
-        )
-
-        # ====================================================
-        # NORMAL PUAN
-        # ====================================================
-
-        puan = 0
-
-        nedenler = []
-
-        if hacim_orani >= 2:
-
-            puan += 30
-
-            nedenler.append(
-                "Hacim güçlü şekilde arttı"
-            )
-
-        elif hacim_orani >= 1.5:
-
-            puan += 22
-
-            nedenler.append(
-                "Hacim belirgin artıyor"
-            )
-
-        elif hacim_orani >= 1.2:
-
-            puan += 12
-
-            nedenler.append(
-                "Hacim destekli"
-            )
-
-        if (
-            gunluk_degisim > 0
-            and
-            hacim_orani >= 1.2
-        ):
-
-            puan += 15
-
-            nedenler.append(
-                "Fiyat ve hacim birlikte yükseliyor"
-            )
-
-        if e9 > e21:
-
-            puan += 12
-
-            nedenler.append(
-                "Kısa vadeli trend pozitif"
-            )
-
-        if e21 > e50:
-
-            puan += 10
-
-            nedenler.append(
-                "Orta vadeli trend pozitif"
-            )
-
-        if e50 > e200:
-
-            puan += 8
-
-            nedenler.append(
-                "Uzun vadeli trend pozitif"
-            )
-
-        if 45 <= rsi_son <= 65:
-
-            puan += 12
-
-            nedenler.append(
-                "RSI sağlıklı bölgede"
-            )
-
-        elif 65 < rsi_son <= 70:
-
-            puan += 5
-
-        if fiyat > direnç:
-
-            puan += 15
-
-            nedenler.append(
-                "20 günlük direnç kırıldı"
-            )
-
-        if (
-            -65 <=
-            zirveden_uzaklik <=
-            -45
-        ):
-
-            puan += 8
-
-            nedenler.append(
-                "52 haftalık zirveden uzak"
-            )
-
-        if rsi_son > 72:
-
-            puan -= 20
-
-            nedenler.append(
-                "RSI aşırı yüksek"
-            )
-
-        puan = max(
-            0,
-            min(
-                100,
-                int(puan)
-            )
-        )
-
-        # ====================================================
-        # SİNYAL
-        # ====================================================
-
-        if rsi_son > 72:
-
-            sinyal = "⚠️ AŞIRI YÜKSELDİ"
-
-        elif (
-            patlama_puani >= 75
-            and
-            sikisma_puani >= 65
-            and
-            hacim_orani >= 1.2
-        ):
-
-            sinyal = "🔥 SIKIŞMA ÇÖZÜLÜYOR"
-
-        elif (
-            puan >= 78
-            and
-            hacim_orani >= 1.5
-        ):
-
-            sinyal = "🔥 GÜÇLÜ AL"
-
-        elif (
-            sikisma_puani >= 75
-            and
-            patlama_puani >= 50
-        ):
-
-            sinyal = "🔒 GÜÇLÜ SIKIŞMA"
-
-        elif puan >= 55:
-
-            sinyal = "🟢 AL"
-
-        elif sikisma_puani >= 60:
-
-            sinyal = "🔒 SIKIŞMA"
-
-        elif puan >= 35:
-
-            sinyal = "👀 TAKİBE AL"
-
-        else:
-
-            sinyal = "⏳ BEKLE"
-
-        # ====================================================
-        # GİRİŞ / STOP / HEDEF
-        # ====================================================
-
-        gunluk_vol = (
-            c.pct_change()
-            .rolling(14)
-            .std()
-            .iloc[-1]
-        )
-
-        if pd.isna(gunluk_vol):
-
-            gunluk_vol = 0.02
-
-        giris_alt = max(
-            destek,
-            e21
-        )
-
-        giris_ust = max(
-            giris_alt,
-            fiyat
-        )
-
-        stop_yuzdesi = max(
-            0.025,
-            min(
-                float(gunluk_vol) * 1.5,
-                0.07
-            )
-        )
-
-        stop = (
-            giris_alt *
-            (
-                1 -
-                stop_yuzdesi
-            )
-        )
-
-        hedef1 = max(
-            direnç,
-            fiyat * 1.04
-        )
-
-        hedef2 = max(
-            hedef1 * 1.04,
-            fiyat * 1.08
-        )
-
-        if direnç <= fiyat:
-
-            hedef1 = fiyat * 1.04
-
-            hedef2 = fiyat * 1.08
-
-        risk = fiyat - stop
-
-        getiri1 = hedef1 - fiyat
-
-        if risk > 0:
-
-            risk_getiri = (
-                getiri1 /
-                risk
-            )
-
-        else:
-
-            risk_getiri = 0
-
-        # ====================================================
-        # GRAFİK
-        # ====================================================
-
-        grafik = []
-
-        for tarih, row in (
-            data.tail(120).iterrows()
-        ):
-
-            try:
-
-                tarih_text = (
-                    tarih.strftime(
-                        "%Y-%m-%d"
-                    )
-                )
-
-            except:
-
-                tarih_text = str(
-                    tarih
-                )
-
-            grafik.append({
-
-                "tarih":
-                    tarih_text,
-
-                "fiyat":
-                    round(
-                        float(
-                            row["close"]
-                        ),
-                        2
-                    )
-
-            })
-
-        return {
-
-            "hisse":
-                ticker.replace(
-                    ".IS",
-                    ""
-                ),
-
-            "fiyat":
-                round(
-                    fiyat,
-                    2
-                ),
-
-            "sinyal":
-                sinyal,
-
-            "puan":
-                puan,
-
-            "rsi":
-                round(
-                    rsi_son,
-                    1
-                ),
-
-            "hacim_orani":
-                round(
-                    hacim_orani,
-                    2
-                ),
-
-            "gunluk_degisim":
-                round(
-                    gunluk_degisim,
-                    2
-                ),
-
-            "zirveden_uzaklik":
-                round(
-                    zirveden_uzaklik,
-                    1
-                ),
-
-            "ema9":
-                round(
-                    e9,
-                    2
-                ),
-
-            "ema21":
-                round(
-                    e21,
-                    2
-                ),
-
-            "ema50":
-                round(
-                    e50,
-                    2
-                ),
-
-            "ema200":
-                round(
-                    e200,
-                    2
-                ),
-
-            "direnc":
-                round(
-                    direnç,
-                    2
-                ),
-
-            "destek":
-                round(
-                    destek,
-                    2
-                ),
-
-            "zirve52":
-                round(
-                    zirve,
-                    2
-                ),
-
-            "dip52":
-                round(
-                    dip,
-                    2
-                ),
-
-            "giris_alt":
-                round(
-                    giris_alt,
-                    2
-                ),
-
-            "giris_ust":
-                round(
-                    giris_ust,
-                    2
-                ),
-
-            "stop":
-                round(
-                    stop,
-                    2
-                ),
-
-            "hedef1":
-                round(
-                    hedef1,
-                    2
-                ),
-
-            "hedef2":
-                round(
-                    hedef2,
-                    2
-                ),
-
-            "risk_getiri":
-                round(
-                    risk_getiri,
-                    2
-                ),
-
-            "sikisma_puani":
-                sikisma_puani,
-
-            "patlama_puani":
-                patlama_puani,
-
-            "volatilite20":
-                round(
-                    volatilite20 * 100,
-                    2
-                ),
-
-            "fiyat_aralik":
-                round(
-                    fiyat_aralik * 100,
-                    2
-                ),
-
-            "bant_genisligi":
-                round(
-                    bant_genisligi * 100,
-                    2
-                ),
-
-            "direnc_mesafe":
-                round(
-                    direnç_mesafe,
-                    2
-                ),
-
-            "sikisma_nedenleri":
-                sikisma_nedenleri,
-
-            "patlama_nedenleri":
-                patlama_nedenleri,
-
-            "nedenler":
-                nedenler,
-
-            "grafik":
-                grafik,
-
-            "tradingview":
-                ticker.replace(
-                    ".IS",
-                    ""
-                )
-
-        }
-
+        tables = pd.read_html(BIST500_PAGE)
+        for t in tables:
+            cols = [str(c).lower() for c in t.columns]
+            if any("bist kod" in c or "kod" == c for c in cols):
+                col = t.columns[0]
+                syms = [clean_symbol(x) for x in t[col].tolist()]
+                syms = [x for x in syms if 2 <= len(x) <= 6]
+                if len(syms) >= 450:
+                    return list(dict.fromkeys(syms))[:SCAN_COUNT]
     except Exception:
-
-        return None
-
-
-# ============================================================
-# TOPLU VERİ İNDİRME
-# ============================================================
-
-def toplu_veri_al():
-
-    try:
-
-        df = yf.download(
-
-            BIST_HISSELERI,
-
-            period="1y",
-
-            interval="1d",
-
-            auto_adjust=False,
-
-            progress=False,
-
-            threads=True,
-
-            group_by="column"
-
-        )
-
-        return df, None
-
-    except Exception as e:
-
-        return None, str(e)
-
-
-# ============================================================
-# ARKA PLAN TARAMA
-# ============================================================
-
-def tarama_worker():
-
-    with tarama_lock:
-
-        tarama["running"] = True
-
-        tarama["progress"] = 0
-
-        tarama["total"] = len(
-            BIST_HISSELERI
-        )
-
-        tarama["results"] = []
-
-        tarama["errors"] = []
-
-        tarama["message"] = (
-            "BIST verileri toplu indiriliyor..."
-        )
-
-        tarama["started"] = (
-            datetime.now()
-            .strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-        )
-
-        tarama["finished"] = None
-
-    results = []
-
-    errors = []
-
-    raw, hata = toplu_veri_al()
-
-    if raw is None:
-
-        with tarama_lock:
-
-            tarama["running"] = False
-
-            tarama["message"] = (
-                "Veri alınamadı: " +
-                str(hata)
-            )
-
-            tarama["errors"] = [
-                {
-                    "hata":
-                        str(hata)
-                }
-            ]
-
-        return
-
-    # ========================================================
-    # HER HİSSEYİ ANALİZ ET
-    # ========================================================
-
-    for sira, ticker in enumerate(
-        BIST_HISSELERI,
-        start=1
-    ):
-
-        try:
-
-            if isinstance(
-                raw.columns,
-                pd.MultiIndex
-            ):
-
-                # yfinance kolon yapısını bul
-                hisse_df = None
-
-                for level in range(
-                    raw.columns.nlevels
-                ):
-
-                    try:
-
-                        if ticker in (
-                            raw.columns
-                            .get_level_values(
-                                level
-                            )
-                        ):
-
-                            hisse_df = (
-                                raw.xs(
-                                    ticker,
-                                    axis=1,
-                                    level=level
-                                )
-                            )
-
-                            break
-
-                    except Exception:
-
-                        pass
-
-                if hisse_df is None:
-
-                    raise Exception(
-                        "Hisse verisi bulunamadı"
-                    )
-
-            else:
-
-                hisse_df = raw
-
-            sonuc = analiz_et(
-                hisse_df,
-                ticker
-            )
-
-            if sonuc:
-
-                results.append(
-                    sonuc
-                )
-
-            else:
-
-                errors.append({
-
-                    "hisse":
-                        ticker.replace(
-                            ".IS",
-                            ""
-                        ),
-
-                    "hata":
-                        "Yetersiz veri"
-
-                })
-
-        except Exception as e:
-
-            errors.append({
-
-                "hisse":
-                    ticker.replace(
-                        ".IS",
-                        ""
-                    ),
-
-                "hata":
-                    str(e)
-
-            })
-
-        # ====================================================
-        # DURUMU GÜNCELLE
-        # ====================================================
-
-        with tarama_lock:
-
-            tarama["progress"] = sira
-
-            tarama["results"] = sorted(
-
-                results,
-
-                key=lambda x: (
-
-                    x.get(
-                        "patlama_puani",
-                        0
-                    ),
-
-                    x.get(
-                        "sikisma_puani",
-                        0
-                    ),
-
-                    x.get(
-                        "puan",
-                        0
-                    )
-
-                ),
-
-                reverse=True
-
-            )
-
-            tarama["errors"] = errors
-
-            tarama["message"] = (
-                f"{sira}/"
-                f"{len(BIST_HISSELERI)} "
-                "hisse analiz edildi"
-            )
-
-    # ========================================================
-    # GEÇMİŞİ KAYDET
-    # ========================================================
-
-    tarih = datetime.now().strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    try:
-
-        with open(
-            HISTORY_FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-
-            gecmis = json.load(f)
-
-    except Exception:
-
-        gecmis = []
-
-    for sonuc in results:
-
-        gecmis.append({
-
-            "tarih":
-                tarih,
-
-            "hisse":
-                sonuc["hisse"],
-
-            "sinyal":
-                sonuc["sinyal"],
-
-            "fiyat":
-                sonuc["fiyat"],
-
-            "sikisma_puani":
-                sonuc[
-                    "sikisma_puani"
-                ],
-
-            "patlama_puani":
-                sonuc[
-                    "patlama_puani"
-                ]
-
-        })
-
-    try:
-
-        with open(
-            HISTORY_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                gecmis[-1000:],
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
-
-    except Exception:
-
         pass
 
-    with tarama_lock:
+    # 2) Fallback: KAP-derived public BIST symbol list.
+    try:
+        r = requests.get(FALLBACK_TICKER_URL, timeout=15)
+        r.raise_for_status()
+        df = pd.read_csv(StringIO(r.text))
+        col = "symbol" if "symbol" in df.columns else df.columns[0]
+        syms = [clean_symbol(x) for x in df[col].tolist()]
+        syms = [x for x in syms if 2 <= len(x) <= 6]
+        return list(dict.fromkeys(syms))[:SCAN_COUNT]
+    except Exception as e:
+        raise RuntimeError(f"Hisse listesi alınamadı: {e}")
 
-        tarama["running"] = False
+def rsi(s, n=14):
+    d = s.diff()
+    up = d.clip(lower=0)
+    dn = -d.clip(upper=0)
+    au = up.ewm(alpha=1/n, adjust=False).mean()
+    ad = dn.ewm(alpha=1/n, adjust=False).mean()
+    rs = au / ad.replace(0, np.nan)
+    return 100 - (100 / (1 + rs))
 
-        tarama["finished"] = tarih
+def score_stock(symbol, df):
+    if df is None or df.empty or len(df) < 80:
+        return None
 
-        tarama["message"] = (
-            "Tarama tamamlandı"
-        )
+    df = df.dropna(subset=["Close"]).copy()
+    close = df["Close"]
+    high = df["High"]
+    low = df["Low"]
+    volume = df["Volume"].fillna(0)
 
+    price = float(close.iloc[-1])
+    prev = float(close.iloc[-2]) if len(close) > 1 else price
+    daily = (price / prev - 1) * 100 if prev else 0
 
-# ============================================================
-# ANA SAYFA
-# ============================================================
+    e9 = close.ewm(span=9, adjust=False).mean()
+    e21 = close.ewm(span=21, adjust=False).mean()
+    e50 = close.ewm(span=50, adjust=False).mean()
+    e200 = close.ewm(span=200, adjust=False).mean()
+
+    rv = float(rsi(close).iloc[-1])
+    vol20 = float(volume.rolling(20).mean().iloc[-1] or 0)
+    vol5 = float(volume.rolling(5).mean().iloc[-1] or 0)
+    vol_ratio = vol5 / vol20 if vol20 > 0 else 0
+
+    resistance = float(high.rolling(20).max().shift(1).iloc[-1])
+    support = float(low.rolling(20).min().shift(1).iloc[-1])
+    high52 = float(high.tail(252).max())
+    low52 = float(low.tail(252).min())
+
+    ret20 = (price / float(close.iloc[-21]) - 1) * 100 if len(close) > 21 else 0
+    ret60 = (price / float(close.iloc[-61]) - 1) * 100 if len(close) > 61 else 0
+
+    std20 = float(close.pct_change().rolling(20).std().iloc[-1] or 0)
+    mid = float(close.rolling(20).mean().iloc[-1])
+    std = float(close.rolling(20).std().iloc[-1] or 0)
+    upper = mid + 2 * std
+    lower = mid - 2 * std
+    band_width = (upper - lower) / mid if mid else 999
+
+    range20 = (float(high.tail(20).max()) - float(low.tail(20).min())) / price if price else 999
+    dist_res = ((resistance / price) - 1) * 100 if price else 999
+    from_peak = ((price / high52) - 1) * 100 if high52 else 0
+
+    # Sıkışma score 0-100
+    squeeze = 0
+    if std20 < 0.018: squeeze += 25
+    elif std20 < 0.025: squeeze += 18
+    elif std20 < 0.035: squeeze += 10
+
+    if range20 < 0.08: squeeze += 25
+    elif range20 < 0.12: squeeze += 18
+    elif range20 < 0.16: squeeze += 10
+
+    if band_width < 0.10: squeeze += 25
+    elif band_width < 0.15: squeeze += 18
+    elif band_width < 0.20: squeeze += 10
+
+    if vol_ratio < 0.80 and vol_ratio < 1.0: squeeze += 15
+    if 0 <= dist_res <= 5: squeeze += 10
+    squeeze = min(100, squeeze)
+
+    # Patlama hazırlık score
+    breakout = 0
+    if squeeze >= 70: breakout += 30
+    elif squeeze >= 55: breakout += 20
+    elif squeeze >= 40: breakout += 10
+    if 45 <= rv <= 65: breakout += 15
+    if e9.iloc[-1] > e21.iloc[-1]: breakout += 15
+    if price > e21.iloc[-1]: breakout += 10
+    if 0 <= dist_res <= 5: breakout += 20
+    if vol_ratio >= 1.15: breakout += 10
+    breakout = min(100, breakout)
+
+    # Genel teknik score
+    technical = 0
+    if vol_ratio >= 2: technical += 30
+    elif vol_ratio >= 1.5: technical += 22
+    elif vol_ratio >= 1.2: technical += 12
+    if daily > 0 and vol_ratio >= 1.2: technical += 15
+    if e9.iloc[-1] > e21.iloc[-1]: technical += 12
+    if e21.iloc[-1] > e50.iloc[-1]: technical += 10
+    if e50.iloc[-1] > e200.iloc[-1]: technical += 8
+    if 45 <= rv <= 65: technical += 12
+    if price > resistance: technical += 15
+    if -65 <= from_peak <= -45: technical += 8
+    if rv > 72: technical -= 20
+    technical = max(0, min(100, technical))
+
+    # Yeni "kalite" skoru: teknik + sıkışma + kırılım + momentum
+    momentum = 0
+    if ret20 > 0: momentum += 8
+    if ret20 > 5: momentum += 7
+    if ret60 > 0: momentum += 5
+    if price > e21.iloc[-1]: momentum += 5
+    if price > e50.iloc[-1]: momentum += 5
+    momentum = min(30, momentum)
+
+    final_score = round(
+        technical * 0.45 +
+        breakout * 0.25 +
+        squeeze * 0.15 +
+        momentum * 0.15
+    )
+
+    if rv > 78:
+        category = "⚠️ AŞIRI YÜKSELDİ"
+    elif final_score >= 78 and vol_ratio >= 1.5:
+        category = "🔥 GÜÇLÜ AL"
+    elif breakout >= 75 and squeeze >= 65 and vol_ratio >= 1.2:
+        category = "🚀 KIRILIM ADAYI"
+    elif squeeze >= 78 and breakout >= 70:
+        category = "🔒 GÜÇLÜ SIKIŞMA"
+    elif final_score >= 55:
+        category = "🟢 AL"
+    elif squeeze >= 60:
+        category = "🔒 SIKIŞMA"
+    else:
+        category = "👀 TAKİBE AL"
+
+    entry_low = max(support, float(e21.iloc[-1]))
+    entry_high = max(entry_low, price)
+    risk = max(0.025, min(std20 * 1.5, 0.07))
+    stop = entry_low * (1 - risk)
+    target1 = max(resistance, price * 1.04)
+    target2 = max(target1 * 1.04, price * 1.08)
+    if resistance <= price:
+        target1, target2 = price * 1.04, price * 1.08
+
+    reasons = []
+    if price > e21.iloc[-1]: reasons.append("EMA21 üzerinde")
+    if e9.iloc[-1] > e21.iloc[-1]: reasons.append("Kısa trend pozitif")
+    if vol_ratio >= 1.2: reasons.append("Hacim destekli")
+    if 45 <= rv <= 65: reasons.append("RSI dengeli")
+    if squeeze >= 70: reasons.append("Güçlü sıkışma")
+    if breakout >= 70: reasons.append("Kırılım hazırlığı güçlü")
+    if price > resistance: reasons.append("Direnç kırıldı")
+    reasons = reasons[:5]
+
+    return {
+        "symbol": symbol,
+        "price": round(price, 2),
+        "daily": round(daily, 2),
+        "technical": technical,
+        "rsi": round(rv, 1),
+        "volume_ratio": round(vol_ratio, 2),
+        "squeeze": squeeze,
+        "breakout": breakout,
+        "score": final_score,
+        "category": category,
+        "support": round(support, 2),
+        "resistance": round(resistance, 2),
+        "entry_low": round(entry_low, 2),
+        "entry_high": round(entry_high, 2),
+        "stop": round(stop, 2),
+        "target1": round(target1, 2),
+        "target2": round(target2, 2),
+        "from_peak": round(from_peak, 1),
+        "reasons": reasons
+    }
+
+def normalize_download(data, symbol):
+    try:
+        if isinstance(data.columns, pd.MultiIndex):
+            if symbol in data.columns.get_level_values(1):
+                df = data.xs(symbol, axis=1, level=1)
+            elif symbol in data.columns.get_level_values(0):
+                df = data.xs(symbol, axis=1, level=0)
+            else:
+                return None
+        else:
+            df = data
+        return df[["Open","High","Low","Close","Volume"]].dropna(how="all")
+    except Exception:
+        return None
+
+def do_scan():
+    global state
+    try:
+        symbols = load_bist500()
+        symbols = symbols[:SCAN_COUNT]
+        state.update({"running": True, "progress": 0, "total": len(symbols), "error": None})
+
+        tickers = [s + ".IS" for s in symbols]
+        frames = {}
+        chunk_size = 75
+
+        for start in range(0, len(tickers), chunk_size):
+            chunk = tickers[start:start+chunk_size]
+            try:
+                data = yf.download(
+                    chunk, period=PERIOD, interval=INTERVAL,
+                    auto_adjust=False, progress=False, group_by="column",
+                    threads=True
+                )
+                for s in chunk:
+                    frames[s.replace(".IS","")] = normalize_download(data, s)
+            except Exception:
+                for s in chunk:
+                    try:
+                        one = yf.download(s, period=PERIOD, interval=INTERVAL,
+                                          auto_adjust=False, progress=False)
+                        frames[s.replace(".IS","")] = normalize_download(one, s)
+                    except Exception:
+                        frames[s.replace(".IS","")] = None
+            state["progress"] = min(len(tickers), start + len(chunk))
+
+        results = []
+        for sym in symbols:
+            r = score_stock(sym, frames.get(sym))
+            if r:
+                results.append(r)
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        # 3 + 3 + 3: categories have priority, then score.
+        strong = [x for x in results if x["category"] == "🔥 GÜÇLÜ AL"][:3]
+        buy = [x for x in results if x["category"] == "🟢 AL"][:3]
+        squeeze = [x for x in results if x["category"] in ("🚀 KIRILIM ADAYI","🔒 GÜÇLÜ SIKIŞMA")] [:3]
+
+        # Fill empty groups with best remaining candidates.
+        used = {x["symbol"] for x in strong + buy + squeeze}
+        if len(strong) < 3:
+            for x in results:
+                if x["symbol"] not in used and x["score"] >= 60:
+                    strong.append(x); used.add(x["symbol"])
+                    if len(strong) == 3: break
+        if len(buy) < 3:
+            for x in results:
+                if x["symbol"] not in used and x["score"] >= 50:
+                    buy.append(x); used.add(x["symbol"])
+                    if len(buy) == 3: break
+        if len(squeeze) < 3:
+            for x in sorted(results, key=lambda z: (z["squeeze"], z["breakout"]), reverse=True):
+                if x["symbol"] not in used:
+                    squeeze.append(x); used.add(x["symbol"])
+                    if len(squeeze) == 3: break
+
+        gainers = sorted(results, key=lambda x: x["daily"], reverse=True)[:10]
+        losers = sorted(results, key=lambda x: x["daily"])[:10]
+
+        state["results"] = results
+        state["updated"] = datetime.now().strftime("%d.%m.%Y %H:%M")
+        state["running"] = False
+        state["progress"] = len(symbols)
+
+        cache["home"] = {
+            "strong": strong[:3],
+            "buy": buy[:3],
+            "squeeze": squeeze[:3],
+            "gainers": gainers,
+            "losers": losers,
+            "scanned": len(results),
+            "updated": state["updated"]
+        }
+    except Exception as e:
+        state["running"] = False
+        state["error"] = str(e)
 
 @app.route("/")
-def ana_sayfa():
+def index():
+    return render_template("index.html")
 
-    return render_template(
-        "index.html"
-    )
+@app.route("/api/scan", methods=["POST"])
+def start_scan():
+    if state["running"]:
+        return jsonify({"ok": False, "message": "Tarama zaten devam ediyor."})
+    threading.Thread(target=do_scan, daemon=True).start()
+    return jsonify({"ok": True})
 
+@app.route("/api/status")
+def status():
+    return jsonify(state)
 
-# ============================================================
-# TARAMAYI BAŞLAT
-# ============================================================
+@app.route("/api/home")
+def home():
+    return jsonify(cache.get("home", {
+        "strong": [], "buy": [], "squeeze": [],
+        "gainers": [], "losers": [], "scanned": 0, "updated": None
+    }))
 
-@app.route(
-    "/api/scan"
-)
-def tara():
+@app.route("/api/stock/<symbol>")
+def stock(symbol):
+    symbol = clean_symbol(symbol)
+    now = time.time()
+    if symbol in cache and now - cache[symbol]["time"] < CACHE_SECONDS:
+        return jsonify(cache[symbol]["payload"])
 
-    with tarama_lock:
+    try:
+        df = yf.download(symbol + ".IS", period="1y", interval="1d",
+                         auto_adjust=False, progress=False)
+        df = normalize_download(df, symbol + ".IS")
+        if df is None or df.empty:
+            return jsonify({"error": "Veri bulunamadı"}), 404
 
-        if tarama["running"]:
-
-            return jsonify({
-
-                "basarili":
-                    True,
-
-                "running":
-                    True,
-
-                "message":
-                    "Tarama zaten devam ediyor"
-
+        analysis = score_stock(symbol, df)
+        candles = []
+        for idx, row in df.tail(220).iterrows():
+            candles.append({
+                "time": idx.strftime("%Y-%m-%d"),
+                "open": round(float(row["Open"]), 4),
+                "high": round(float(row["High"]), 4),
+                "low": round(float(row["Low"]), 4),
+                "close": round(float(row["Close"]), 4),
+                "volume": int(row["Volume"]) if pd.notna(row["Volume"]) else 0
             })
 
-        thread = threading.Thread(
-
-            target=tarama_worker,
-
-            daemon=True
-
-        )
-
-        thread.start()
-
-    return jsonify({
-
-        "basarili":
-            True,
-
-        "running":
-            True,
-
-        "message":
-            "Tarama arka planda başlatıldı"
-
-    })
-
-
-# ============================================================
-# TARMA DURUMU
-# ============================================================
-
-@app.route(
-    "/api/status"
-)
-def durum():
-
-    with tarama_lock:
-
-        return jsonify({
-
-            "basarili":
-                True,
-
-            "running":
-                tarama["running"],
-
-            "progress":
-                tarama["progress"],
-
-            "total":
-                tarama["total"],
-
-            "results":
-                tarama["results"],
-
-            "errors":
-                tarama["errors"],
-
-            "message":
-                tarama["message"],
-
-            "started":
-                tarama["started"],
-
-            "finished":
-                tarama["finished"]
-
-        })
-
-
-# ============================================================
-# TEK HİSSE
-# ============================================================
-
-@app.route(
-    "/api/hisse/<ticker>"
-)
-def hisse_detay(ticker):
-
-    ticker = ticker.upper()
-
-    if not ticker.endswith(
-        ".IS"
-    ):
-
-        ticker += ".IS"
-
-    try:
-
-        df = yf.download(
-
-            ticker,
-
-            period="1y",
-
-            interval="1d",
-
-            auto_adjust=False,
-
-            progress=False,
-
-            threads=False
-
-        )
-
-        sonuc = analiz_et(
-            df,
-            ticker
-        )
-
-        if sonuc is None:
-
-            return jsonify({
-
-                "basarili":
-                    False,
-
-                "hata":
-                    "Veri alınamadı"
-
-            }), 404
-
-        return jsonify({
-
-            "basarili":
-                True,
-
-            "hisse":
-                sonuc
-
-        })
-
+        payload = {"analysis": analysis, "candles": candles}
+        cache[symbol] = {"time": now, "payload": payload}
+        return jsonify(payload)
     except Exception as e:
-
-        return jsonify({
-
-            "basarili":
-                False,
-
-            "hata":
-                str(e)
-
-        }), 500
-
-
-# ============================================================
-# GEÇMİŞ
-# ============================================================
-
-@app.route(
-    "/api/history"
-)
-def sinyal_gecmisi():
-
-    try:
-
-        with open(
-            HISTORY_FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-
-            gecmis = json.load(f)
-
-        return jsonify(
-            gecmis[-200:]
-        )
-
-    except Exception:
-
-        return jsonify([])
-
-
-# ============================================================
-# SİSTEM BİLGİSİ
-# ============================================================
-
-@app.route(
-    "/api/info"
-)
-def sistem_bilgisi():
-
-    return jsonify({
-
-        "status":
-            "ok",
-
-        "uygulama":
-            "BIST Hisse Avcısı V9",
-
-        "hisse_sayisi":
-            len(
-                BIST_HISSELERI
-            ),
-
-        "sikisma_sistemi":
-            True,
-
-        "patlama_sistemi":
-            True,
-
-        "batch_veri":
-            True,
-
-        "arka_plan_tarama":
-            True
-
-    })
-
-
-# ============================================================
-# HEALTH
-# ============================================================
-
-@app.route(
-    "/health"
-)
-def health():
-
-    return jsonify({
-
-        "status":
-            "ok",
-
-        "uygulama":
-            "BIST Hisse Avcısı V9",
-
-        "hisse_sayisi":
-            len(
-                BIST_HISSELERI
-            )
-
-    })
-
-
-# ============================================================
-# ÇALIŞTIR
-# ============================================================
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-
-    port = int(
-        os.environ.get(
-            "PORT",
-            5000
-        )
-    )
-
-    app.run(
-
-        host="0.0.0.0",
-
-        port=port,
-
-        debug=False
-
-    )
+    app.run(host="0.0.0.0", port=5000, debug=False)
