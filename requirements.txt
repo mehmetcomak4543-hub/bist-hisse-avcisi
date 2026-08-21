@@ -1,5 +1,0 @@
-Flask>=3.0,<4
-gunicorn>=23,<24
-yfinance>=0.2.60,<0.3
-pandas>=2.0,<3
-numpy>=1.24,<3
